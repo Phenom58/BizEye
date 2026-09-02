@@ -11,6 +11,8 @@ class User(Base):
     password_hash = Column(String, nullable=False)
     is_verified = Column(Boolean, default=False)
     verification_code = Column(String, nullable=True)
+    role = Column(String, default="Business Owner")
+    company = Column(String, default="D2C Brand Store")
     created_at = Column(DateTime, default=datetime.utcnow)
 
 class Dataset(Base):

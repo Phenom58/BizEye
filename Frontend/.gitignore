@@ -25,6 +25,8 @@ build/
 .env.test.local
 .env.production.local
 *.local
+*.key
+*.pem
 
 # IDE and Editor files
 .vscode/*

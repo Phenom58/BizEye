@@ -102,26 +102,7 @@ export default function Landing({ onGetStarted }: Props) {
           </div>
         </div>
 
-        {/* Scroll indicator */}
-        <div className="hidden lg:flex absolute right-12 bottom-12 items-center">
-          <div className="relative w-14 h-14">
-            <svg className="absolute inset-0 w-full h-full animate-spin-slow" viewBox="0 0 56 56">
-              <path
-                id="circle"
-                d="M 28 28 m -20 0 a 20 20 0 1 1 40 0 a 20 20 0 1 1 -40 0"
-                fill="none"
-              />
-              <text className="fill-gray-500 text-[7px]" fontSize="7">
-                <textPath href="#circle" spacing="auto">SCROLL DOWN · SCROLL DOWN · </textPath>
-              </text>
-            </svg>
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="w-7 h-7 bg-sky-400 rounded-full flex items-center justify-center">
-                <ArrowRight className="w-3 h-3 text-black rotate-90" />
-              </div>
-            </div>
-          </div>
-        </div>
+
       </section>
 
       {/* Stats bar */}
@@ -152,18 +133,26 @@ export default function Landing({ onGetStarted }: Props) {
             {FEATURES.map((f, i) => (
               <div
                 key={f.title}
-                className="bg-[#0a0a0a] p-10 group hover:bg-[#111] transition-colors duration-300"
+                onClick={onGetStarted}
+                className="bg-[#0a0a0a] p-10 group hover:bg-[#141414] transition-all duration-300 cursor-pointer relative overflow-hidden"
               >
-                <div className="w-12 h-12 border border-sky-400/30 rounded-lg flex items-center justify-center mb-8 group-hover:border-sky-400/60 transition-colors">
+                <div className="w-12 h-12 border border-sky-400/30 rounded-lg flex items-center justify-center mb-8 group-hover:border-sky-400 group-hover:bg-sky-400/10 transition-all">
                   <f.icon className="w-5 h-5 text-sky-400" />
                 </div>
-                <p className="text-xs tracking-widest text-gray-600 uppercase mb-3">0{i + 1}</p>
-                <h3 className="text-xl font-semibold text-white mb-4">{f.title}</h3>
-                <p className="text-gray-500 text-sm leading-relaxed">{f.desc}</p>
-                <div className="mt-8 flex items-center gap-2 text-sky-400 text-sm opacity-0 group-hover:opacity-100 transition-opacity">
+                <p className="text-xs tracking-widest text-gray-600 uppercase mb-3 font-mono">0{i + 1}</p>
+                <h3 className="text-xl font-semibold text-white mb-4 group-hover:text-sky-300 transition-colors">{f.title}</h3>
+                <p className="text-gray-500 text-sm leading-relaxed mb-6">{f.desc}</p>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onGetStarted();
+                  }}
+                  className="mt-4 flex items-center gap-2 text-sky-400 text-sm font-medium opacity-80 group-hover:opacity-100 group-hover:translate-x-1 transition-all"
+                >
                   <span>Explore</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </div>
+                  <ArrowRight className="w-4 h-4" />
+                </button>
               </div>
             ))}
           </div>

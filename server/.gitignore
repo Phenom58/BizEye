@@ -2,39 +2,45 @@
 # SERVER SECURITY & SECRETS PROTECTION
 # ==========================================
 
-# Environment Secrets
+# Environment & API Key Secrets
 .env
 .env.*
 *.env
 .env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.local
 
-# Keys & Certificates
+# Cryptographic Keys & Certificates
 *.pem
 *.key
 *.crt
+*.pfx
+*.p12
 
-# Service Account & Cloud Credentials
+# Cloud Credentials & Service Accounts
 service-account*.json
+service_account*.json
 client_secret*.json
 
-# Python Bytecode & Environments
+# Databases & Data Stores
+*.db
+*.sqlite
+*.sqlite3
+uploads/
+
+# Python Bytecode & Virtual Environments
 __pycache__/
 *.py[cod]
 *$py.class
 venv/
 .venv/
 env/
+.pytest_cache/
 
-# Databases & File Uploads
-*.db
-*.sqlite
-*.sqlite3
-uploads/
-
-# Dependency directories
+# Dependency directories & Logs
 node_modules/
-
-# Logs
 logs/
 *.log
 
