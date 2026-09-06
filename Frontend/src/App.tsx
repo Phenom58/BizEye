@@ -20,33 +20,45 @@ export default function App() {
 
   // Validate backend JWT session on startup
   useEffect(() => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 1500);
+
     async function checkAuthSession() {
       const token = localStorage.getItem('auth_token');
       if (!token) {
         setLoading(false);
+        clearTimeout(timeoutId);
         return;
       }
 
       try {
         const res = await fetch('/api/auth/me', {
           headers: { Authorization: `Bearer ${token}` },
+          signal: controller.signal,
         });
 
         const resData = await res.json();
         if (res.ok && resData.success && resData.user) {
           setUserInfo(resData.user);
-          setPage('dashboard');
+          // Show Home Landing Page introduction by default
+          setPage('landing');
         } else {
           localStorage.removeItem('auth_token');
         }
       } catch (err) {
-        // Backend unavailable
+        // Backend unavailable or timed out
       } finally {
+        clearTimeout(timeoutId);
         setLoading(false);
       }
     }
 
     checkAuthSession();
+
+    return () => {
+      controller.abort();
+      clearTimeout(timeoutId);
+    };
   }, []);
 
   const handleLogin = (user: UserInfo, token?: string) => {
@@ -78,14 +90,27 @@ export default function App() {
     );
   }
 
-  if (page === 'landing') return <Landing onGetStarted={() => setPage('login')} />;
-  if (page === 'login') return <Login onLogin={handleLogin} onBack={() => setPage('landing')} />;
+  if (page === 'landing') {
+    return (
+      <Landing
+        onGetStarted={() => setPage('login')}
+        isLoggedIn={!!userInfo}
+        onGoToDashboard={() => setPage('dashboard')}
+        onLogout={handleLogout}
+      />
+    );
+  }
+
+  if (page === 'login') {
+    return <Login onLogin={handleLogin} onBack={() => setPage('landing')} />;
+  }
 
   return (
     <Dashboard
       userInfo={userInfo || { username: 'User', email: '' }}
       onUpdateUserInfo={handleUpdateUserInfo}
       onLogout={handleLogout}
+      onGoHome={() => setPage('landing')}
     />
   );
 }
