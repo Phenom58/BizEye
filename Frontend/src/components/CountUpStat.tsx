@@ -1,28 +1,36 @@
 import { useEffect, useState } from 'react';
 
 interface CountUpStatProps {
-  value: string;
+  value?: string;
+  end?: number;
+  prefix?: string;
+  suffix?: string;
   label: string;
 }
 
-export default function CountUpStat({ value, label }: CountUpStatProps) {
+export default function CountUpStat({ value, end, prefix = '', suffix = '', label }: CountUpStatProps) {
   const [displayValue, setDisplayValue] = useState('');
 
-  // Initial fallback string
-  const initialMatch = value.match(/^([^0-9]*)(\d+)(.*)$/);
-  const initialFallback = initialMatch ? `${initialMatch[1]}1${initialMatch[3]}` : value;
+  let p = prefix;
+  let target = end ?? 0;
+  let s = suffix;
+
+  if (value) {
+    const match = value.match(/^([^0-9]*)(\d+)(.*)$/);
+    if (match) {
+      p = match[1];
+      target = parseInt(match[2], 10);
+      s = match[3];
+    } else {
+      p = '';
+      target = 0;
+      s = value;
+    }
+  }
+
+  const initialFallback = `${p}1${s}`;
 
   useEffect(() => {
-    const match = value.match(/^([^0-9]*)(\d+)(.*)$/);
-    if (!match) {
-      setDisplayValue(value);
-      return;
-    }
-
-    const prefix = match[1];
-    const target = parseInt(match[2], 10);
-    const suffix = match[3];
-
     let animationFrameId: number;
     const duration = 1600; // 1.6s total count-up duration
     const startTime = performance.now();
@@ -36,12 +44,12 @@ export default function CountUpStat({ value, label }: CountUpStatProps) {
       const easeOut = 1 - Math.pow(1 - progress, 3);
       const currentVal = Math.floor(startValue + (target - startValue) * easeOut);
 
-      setDisplayValue(`${prefix}${currentVal}${suffix}`);
+      setDisplayValue(`${p}${currentVal}${s}`);
 
       if (progress < 1) {
         animationFrameId = requestAnimationFrame(animate);
       } else {
-        setDisplayValue(`${prefix}${target}${suffix}`);
+        setDisplayValue(`${p}${target}${s}`);
       }
     };
 
@@ -49,7 +57,7 @@ export default function CountUpStat({ value, label }: CountUpStatProps) {
     animationFrameId = requestAnimationFrame(animate);
 
     return () => cancelAnimationFrame(animationFrameId);
-  }, [value]);
+  }, [p, target, s]);
 
   return (
     <div className="px-8 py-10 text-center select-none">
@@ -60,3 +68,4 @@ export default function CountUpStat({ value, label }: CountUpStatProps) {
     </div>
   );
 }
+

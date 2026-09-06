@@ -1,6 +1,5 @@
-import { TrendingUp, AlertTriangle, Sparkles, Package, Users, IndianRupee } from 'lucide-react';
+import { TrendingUp, AlertTriangle, Sparkles, Package, Users, IndianRupee, Upload, DollarSign } from 'lucide-react';
 import { DashboardData } from '@/utils/csvParser';
-import NoDataBanner from './NoDataBanner';
 
 interface Props {
   data?: DashboardData | null;
@@ -19,104 +18,109 @@ export default function Predictive({ data, onNavigate }: Props) {
 
   const forecasts = data
     ? [
-        { metric: '30-Day Revenue Forecast', current: formatCurr(lastMonthRevenue), predicted: formatCurr(data.predictedRevenue), change: data.revenueGrowthPct, confidence: 92, icon: IndianRupee },
-        { metric: '30-Day Order Volume', current: lastMonthOrders.toLocaleString(), predicted: data.predictedOrders.toLocaleString(), change: data.ordersGrowthPct, confidence: 88, icon: Package },
-        { metric: 'Avg Customer Rating', current: data.avgRating.toFixed(1), predicted: Math.min(5.0, data.avgRating * 1.03).toFixed(1), change: '+3%', confidence: 85, icon: Users },
+        { metric: '30-Day Revenue Forecast', current: formatCurr(lastMonthRevenue), predicted: formatCurr(data.predictedRevenue), change: data.revenueGrowthPct, confidence: 92, icon: DollarSign, bg: 'bg-indigo-50 text-indigo-600 border-indigo-100' },
+        { metric: '30-Day Order Volume', current: lastMonthOrders.toLocaleString(), predicted: data.predictedOrders.toLocaleString(), change: data.ordersGrowthPct, confidence: 88, icon: Package, bg: 'bg-sky-50 text-sky-600 border-sky-100' },
+        { metric: 'Avg Rating Forecast', current: data.avgRating.toFixed(1), predicted: Math.min(5.0, data.avgRating * 1.03).toFixed(1), change: '+3%', confidence: 85, icon: Users, bg: 'bg-emerald-50 text-emerald-600 border-emerald-100' },
       ]
-    : [
-        { metric: '30-Day Revenue Forecast', current: '₹0', predicted: '₹0', change: '0%', confidence: 0, icon: IndianRupee },
-        { metric: '30-Day Order Volume', current: '0', predicted: '0', change: '0%', confidence: 0, icon: Package },
-        { metric: 'Avg Customer Rating', current: '--', predicted: '--', change: '0%', confidence: 0, icon: Users },
-      ];
+    : [];
 
   return (
     <div className="space-y-6 animate-fade-in">
-      {/* AI forecast banner */}
-      <div className="bg-gradient-to-r from-[#0a0a0a] to-[#1a1a1a] rounded-2xl p-6 text-white relative overflow-hidden">
-        <div className="absolute right-0 top-0 w-64 h-64 bg-sky-400/10 rounded-full blur-[80px]" />
+      {/* Hero AI banner */}
+      <div className="bg-gradient-to-r from-indigo-600 via-blue-600 to-sky-500 rounded-3xl p-6 sm:p-8 text-white relative overflow-hidden shadow-lg shadow-indigo-500/20">
+        <div className="absolute right-0 bottom-0 w-64 h-64 bg-white/10 rounded-full blur-2xl pointer-events-none" />
         <div className="relative flex items-start gap-4">
-          <div className="w-10 h-10 bg-sky-400/20 border border-sky-400/30 rounded-lg flex items-center justify-center shrink-0">
-            <Sparkles className="w-5 h-5 text-sky-400" />
+          <div className="w-12 h-12 bg-white/15 backdrop-blur-xs rounded-2xl flex items-center justify-center shrink-0">
+            <Sparkles className="w-6 h-6 text-yellow-300" />
           </div>
-          <div className="flex-1">
-            <p className="text-xs text-sky-400 uppercase tracking-widest mb-1">AI Demand Forecast</p>
-            {data ? (
-              <>
-                <h2 className="text-lg font-semibold mb-2">Predictive Demand Analysis</h2>
-                <p className="text-gray-400 text-sm leading-relaxed max-w-3xl">
-                  Based on {data.revenueByMonth.length} month(s) of sales trends across {data.totalOrders.toLocaleString()} orders, AI projects {data.revenueGrowthPct} revenue growth next month with estimated revenue of {formatCurr(data.predictedRevenue)}.
-                </p>
-              </>
-            ) : (
-              <>
-                <h2 className="text-lg font-semibold mb-2">No Forecast Available</h2>
-                <p className="text-gray-400 text-sm leading-relaxed max-w-3xl">
-                  Upload a sales CSV dataset to calculate AI-powered 30-day demand projections and order volume forecasts.
-                </p>
-              </>
-            )}
+          <div className="flex-1 space-y-2">
+            <span className="text-xs font-bold tracking-wider uppercase text-indigo-200 bg-white/10 px-2.5 py-0.5 rounded-full">
+              AI Demand Intelligence
+            </span>
+            <h2 className="text-2xl font-extrabold">30-Day Predictive Analytics</h2>
+            <p className="text-xs sm:text-sm text-indigo-100 leading-relaxed max-w-3xl">
+              {data
+                ? `Based on ${data.revenueByMonth.length} months of sales data across ${data.totalOrders.toLocaleString()} orders, AI projects ${data.revenueGrowthPct} revenue growth next month with predicted revenue of ${formatCurr(data.predictedRevenue)}.`
+                : 'Upload your sales dataset to generate AI-driven demand projections and order volume forecasts.'}
+            </p>
           </div>
         </div>
       </div>
 
       {!data ? (
-        <NoDataBanner
-          title="No Predictive Data Available"
-          desc="Upload a CSV dataset to generate AI 30-day revenue and order volume forecasts."
-          onUploadClick={onNavigate ? () => onNavigate('upload') : undefined}
-        />
+        <div className="bg-white border-2 border-dashed border-gray-100 rounded-3xl p-12 text-center shadow-xs">
+          <TrendingUp className="w-10 h-10 text-gray-300 mx-auto mb-2" />
+          <h3 className="text-base font-bold text-gray-800 mb-1">No Forecast Available</h3>
+          <p className="text-xs text-gray-400 max-w-sm mx-auto mb-5 leading-relaxed">
+            Upload your sales CSV file to calculate 30-day revenue growth and category demand projections.
+          </p>
+          {onNavigate && (
+            <button
+              onClick={() => onNavigate('upload')}
+              className="px-5 py-2.5 rounded-2xl bg-indigo-600 text-white font-bold text-xs hover:bg-indigo-700 transition-all shadow-md active:scale-95 cursor-pointer"
+            >
+              Upload CSV File
+            </button>
+          )}
+        </div>
       ) : (
         <>
-          {/* Forecast cards */}
-          <div>
-            <h3 className="font-semibold text-gray-900 mb-4">30-Day Forecasts</h3>
-            <div className="grid md:grid-cols-3 gap-4">
-              {forecasts.map((f) => (
-                <div key={f.metric} className="bg-white rounded-xl p-6 border border-gray-200/60">
+          {/* 30-Day Forecast Cards */}
+          <div className="grid md:grid-cols-3 gap-6">
+            {forecasts.map((f) => (
+              <div key={f.metric} className="bg-white border border-gray-100/90 rounded-3xl p-6 shadow-xs flex flex-col justify-between">
+                <div>
                   <div className="flex items-center justify-between mb-4">
-                    <div className="w-10 h-10 bg-sky-50 rounded-lg flex items-center justify-center">
-                      <f.icon className="w-5 h-5 text-sky-600" />
+                    <div className={`w-10 h-10 rounded-2xl border flex items-center justify-center ${f.bg}`}>
+                      <f.icon className="w-5 h-5" />
                     </div>
-                    <span className="text-xs text-gray-400">{f.confidence}% confidence</span>
+                    <span className="text-[11px] font-bold text-gray-500 bg-gray-100 px-2.5 py-1 rounded-full">
+                      {f.confidence}% confidence
+                    </span>
                   </div>
-                  <p className="text-xs text-gray-500 mb-1">{f.metric}</p>
-                  <div className="flex items-end gap-2 mb-3">
-                    <span className="text-2xl font-bold text-gray-900">{f.predicted}</span>
-                    <span className="text-sm text-gray-400 mb-1">from {f.current}</span>
+                  <p className="text-xs font-semibold text-gray-400 mb-1">{f.metric}</p>
+                  <div className="flex items-baseline gap-2 mb-2">
+                    <span className="text-2xl font-extrabold text-gray-900">{f.predicted}</span>
+                    <span className="text-xs font-medium text-gray-400">from {f.current}</span>
                   </div>
-                  <div className="flex items-center gap-1.5">
-                    <TrendingUp className="w-3.5 h-3.5 text-emerald-600" />
-                    <span className="text-xs font-medium text-emerald-600">{f.change} predicted</span>
-                  </div>
-                  {/* Confidence bar */}
-                  <div className="mt-4 h-1 bg-gray-100 rounded-full overflow-hidden">
-                    <div className="h-full bg-sky-400 rounded-full" style={{ width: `${f.confidence}%` }} />
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-600">
+                    <TrendingUp className="w-4 h-4" />
+                    <span>{f.change} predicted growth</span>
                   </div>
                 </div>
-              ))}
-            </div>
+
+                {/* Progress bar */}
+                <div className="mt-5 pt-3 border-t border-gray-50">
+                  <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                    <div className="h-full bg-indigo-600 rounded-full transition-all duration-500" style={{ width: `${f.confidence}%` }} />
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
 
-          {/* Dataset Category Growth Forecasts */}
-          <div className="bg-white rounded-xl p-6 border border-gray-200/60">
-            <div className="flex items-center justify-between mb-4">
+          {/* Category Forecast Grid */}
+          <div className="bg-white border border-gray-100/90 rounded-3xl p-6 shadow-xs">
+            <div className="flex items-center justify-between mb-6">
               <div>
-                <h3 className="font-semibold text-gray-900">Category Growth Forecasts</h3>
-                <p className="text-xs text-gray-500">Predicted category trends for next 30 days</p>
+                <h3 className="text-base font-bold text-gray-900">Category Demand Forecasts</h3>
+                <p className="text-xs text-gray-400">Estimated 30-day velocity by category</p>
               </div>
-              <AlertTriangle className="w-5 h-5 text-sky-500" />
+              <div className="p-2 rounded-xl bg-amber-50 text-amber-600">
+                <AlertTriangle className="w-4 h-4" />
+              </div>
             </div>
 
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {data.categoryRevenue.map((cat) => (
-                <div key={cat.name} className="p-4 border border-gray-100 rounded-xl bg-gray-50/50 space-y-2">
-                  <p className="text-xs font-semibold text-gray-900">{cat.name}</p>
+              {data.categoryRevenue.map((cat, idx) => (
+                <div key={idx} className="p-4 rounded-2xl border border-gray-100 bg-gray-50/50 space-y-2">
+                  <p className="text-xs font-bold text-gray-900">{cat.name}</p>
                   <div className="flex justify-between items-center text-xs">
-                    <span className="text-gray-500">Current Rev: ₹{Math.round(cat.revenue / 1000)}k</span>
-                    <span className="text-emerald-600 font-medium">+15% est.</span>
+                    <span className="text-gray-400 font-medium">Current: ₹{Math.round(cat.revenue / 1000)}k</span>
+                    <span className="text-emerald-600 font-bold">+15% est.</span>
                   </div>
-                  <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
-                    <div className="h-full bg-sky-400 rounded-full" style={{ width: '75%' }} />
+                  <div className="h-2 bg-gray-200/80 rounded-full overflow-hidden">
+                    <div className="h-full bg-indigo-600 rounded-full" style={{ width: '75%' }} />
                   </div>
                 </div>
               ))}

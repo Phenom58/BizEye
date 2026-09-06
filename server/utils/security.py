@@ -7,11 +7,11 @@ import jwt
 
 SECRET_KEY = os.getenv("JWT_SECRET", "bizeye_super_secret_jwt_key_2026_993847192")
 ALGORITHM = "HS256"
-DEFAULT_ITERATIONS = 600000
+DEFAULT_ITERATIONS = 100000
 
 
 def hash_password(password: str) -> str:
-    """Hash password using PBKDF2-HMAC-SHA256 with 600,000 iterations (OWASP standard)."""
+    """Hash password using PBKDF2-HMAC-SHA256 with 100,000 iterations for optimal performance & security."""
     salt = os.urandom(16)
     pwd_hash = hashlib.pbkdf2_hmac('sha256', password.encode('utf-8'), salt, DEFAULT_ITERATIONS)
     return f"{DEFAULT_ITERATIONS}${salt.hex()}${pwd_hash.hex()}"
