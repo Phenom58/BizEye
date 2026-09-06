@@ -5,7 +5,9 @@ import secrets
 from datetime import datetime, timedelta
 import jwt
 
-SECRET_KEY = os.getenv("JWT_SECRET", "bizeye_super_secret_jwt_key_2026_993847192")
+SECRET_KEY = os.getenv("JWT_SECRET")
+if not SECRET_KEY:
+    raise RuntimeError("JWT_SECRET environment variable must be set")
 ALGORITHM = "HS256"
 DEFAULT_ITERATIONS = 100000
 
