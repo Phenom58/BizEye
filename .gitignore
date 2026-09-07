@@ -111,9 +111,17 @@ datasets/
 Thumbs.db
 ehthumbs.db
 
-# Temporary & Scratch Files
+# Temporary, Cache & Scratch Files
 tmp/
 .tmp/
+.cache/
+.eslintcache
+.turbo/
+.parcel-cache/
 scratch/
 ignoreFolder/
 .gemini/
+.claude/
+.cursor/
+*.bak
+*.orig

@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import {
   Eye, LayoutDashboard, BarChart3, MessageSquareHeart, TrendingUp,
   Upload, LogOut, Search, Bell, Sparkles, User, Settings,
-  CheckCheck, AlertTriangle, Info, X, Moon, Sun, ShoppingCart, Home, ChevronDown
+  AlertTriangle, Info, Moon, Sun, Home, ChevronDown, Bot, Check
 } from 'lucide-react';
 import Overview from '@/components/dashboard/Overview';
 import Performance from '@/components/dashboard/Performance';
@@ -10,6 +10,7 @@ import Sentiment from '@/components/dashboard/Sentiment';
 import Predictive from '@/components/dashboard/Predictive';
 import DataUpload from '@/components/dashboard/DataUpload';
 import ProfileSettings from '@/components/dashboard/ProfileSettings';
+import ChatbotModal from '@/components/dashboard/ChatbotModal';
 import { DashboardData } from '@/utils/csvParser';
 import { UserInfo } from '@/App';
 
@@ -31,31 +32,23 @@ interface NotificationItem {
   type: 'predictive' | 'warning' | 'sentiment' | 'system';
 }
 
-const INITIAL_NOTIFICATIONS: NotificationItem[] = [
-  {
-    id: '1',
-    title: 'Demand Growth Predicted',
-    desc: 'Category sales are projected to grow by +18% next month based on historical trends.',
-    time: '10m ago',
-    unread: true,
-    type: 'predictive',
-  },
-  {
-    id: '2',
-    title: 'Low Inventory Alert',
-    desc: 'Top seller inventory is running low. Estimated 8 active days remaining.',
-    time: '1h ago',
-    unread: true,
-    type: 'warning',
-  },
-  {
-    id: '3',
-    title: 'Positive Sentiment Spike',
-    desc: 'Customer review satisfaction score reached 88% (+4.2% increase).',
-    time: '3h ago',
-    unread: true,
-    type: 'sentiment',
-  },
+interface CountryOption {
+  code: string;
+  name: string;
+  flag: string;
+  currency: string;
+  symbol: string;
+}
+
+const COUNTRIES: CountryOption[] = [
+  { code: 'IN', name: 'India', flag: '🇮🇳', currency: 'INR', symbol: '₹' },
+  { code: 'US', name: 'United States', flag: '🇺🇸', currency: 'USD', symbol: '$' },
+  { code: 'GB', name: 'United Kingdom', flag: '🇬🇧', currency: 'GBP', symbol: '£' },
+  { code: 'EU', name: 'European Union', flag: '🇪🇺', currency: 'EUR', symbol: '€' },
+  { code: 'AE', name: 'United Arab Emirates', flag: '🇦🇪', currency: 'AED', symbol: 'د.إ' },
+  { code: 'JP', name: 'Japan', flag: '🇯🇵', currency: 'JPY', symbol: '¥' },
+  { code: 'CA', name: 'Canada', flag: '🇨🇦', currency: 'CAD', symbol: '$' },
+  { code: 'AU', name: 'Australia', flag: '🇦🇺', currency: 'AUD', symbol: '$' },
 ];
 
 interface NavItemDef {
@@ -88,14 +81,32 @@ export default function Dashboard({ userInfo, onUpdateUserInfo, onLogout, onGoHo
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
-  const [notifications, setNotifications] = useState<NotificationItem[]>(INITIAL_NOTIFICATIONS);
+  const [countryDropdownOpen, setCountryDropdownOpen] = useState(false);
+  const [selectedCountry, setSelectedCountry] = useState<CountryOption>(COUNTRIES[0]); // Default India 🇮🇳
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]); // Empty by default
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
+  const [datasetFilename, setDatasetFilename] = useState<string>('');
   const [searchValue, setSearchValue] = useState('');
-  const [darkMode, setDarkMode] = useState(false);
+  const [darkMode, setDarkMode] = useState<boolean>(() => {
+    return localStorage.getItem('theme') === 'dark';
+  });
+  const [chatbotOpen, setChatbotOpen] = useState(false);
 
   const notificationRef = useRef<HTMLDivElement>(null);
   const profileDropdownRef = useRef<HTMLDivElement>(null);
+  const countryDropdownRef = useRef<HTMLDivElement>(null);
   const unreadCount = notifications.filter((n) => n.unread).length;
+
+  // Sync dark class with document element
+  useEffect(() => {
+    if (darkMode) {
+      document.documentElement.classList.add('dark');
+      localStorage.setItem('theme', 'dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+      localStorage.setItem('theme', 'light');
+    }
+  }, [darkMode]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -104,6 +115,9 @@ export default function Dashboard({ userInfo, onUpdateUserInfo, onLogout, onGoHo
       }
       if (profileDropdownRef.current && !profileDropdownRef.current.contains(event.target as Node)) {
         setProfileDropdownOpen(false);
+      }
+      if (countryDropdownRef.current && !countryDropdownRef.current.contains(event.target as Node)) {
+        setCountryDropdownOpen(false);
       }
     }
     document.addEventListener('mousedown', handleClickOutside);
@@ -114,19 +128,51 @@ export default function Dashboard({ userInfo, onUpdateUserInfo, onLogout, onGoHo
   const handleMarkSingleRead = (id: string) => setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, unread: false } : n)));
   const handleClearNotifications = () => setNotifications([]);
 
+  const handleDatasetLoaded = (d: DashboardData, fname?: string) => {
+    const filename = fname || 'sales_dataset.csv';
+    setDashboardData(d);
+    setDatasetFilename(filename);
+    const newNotif: NotificationItem = {
+      id: Date.now().toString(),
+      title: 'Dataset Uploaded',
+      desc: `${filename} (${d.totalOrders.toLocaleString()} rows) processed and analytics generated.`,
+      time: 'Just now',
+      unread: true,
+      type: 'predictive',
+    };
+    setNotifications((prev) => [newNotif, ...prev]);
+    setSection('overview');
+  };
+
+  const handleDatasetRemoved = () => {
+    const filename = datasetFilename || 'Dataset';
+    setDashboardData(null);
+    setDatasetFilename('');
+    const newNotif: NotificationItem = {
+      id: Date.now().toString(),
+      title: 'Dataset Removed',
+      desc: `${filename} has been cleared from your active session.`,
+      time: 'Just now',
+      unread: true,
+      type: 'warning',
+    };
+    setNotifications((prev) => [newNotif, ...prev]);
+  };
+
   const navigate = (s: Section) => {
     setSection(s);
     setMobileSidebarOpen(false);
     setProfileDropdownOpen(false);
+    setCountryDropdownOpen(false);
   };
 
   const initials = userInfo.username ? userInfo.username.charAt(0).toUpperCase() : 'U';
   const isExpanded = sidebarExpanded || isSidebarPinned;
 
   return (
-    <div className={`min-h-screen ${darkMode ? 'bg-[#121824] text-gray-100' : 'bg-[#F4F7FB] text-gray-800'} flex font-sans antialiased selection:bg-indigo-500 selection:text-white transition-colors duration-300`}>
+    <div className="min-h-screen bg-[#F4F7FB] dark:bg-crystal-950 text-gray-800 dark:text-gray-100 flex font-sans antialiased selection:bg-blue-600 selection:text-white transition-colors duration-200">
 
-      {/* ── HOVER-EXPANDING MINI-SIDEBAR (Modernize React UI) ── */}
+      {/* ── HOVER-EXPANDING MINI-SIDEBAR (Crystal Black Dark / Pure Light) ── */}
       <aside
         onMouseEnter={() => setSidebarExpanded(true)}
         onMouseLeave={() => setSidebarExpanded(false)}
@@ -134,21 +180,21 @@ export default function Dashboard({ userInfo, onUpdateUserInfo, onLogout, onGoHo
           mobileSidebarOpen ? 'translate-x-0' : '-translate-x-full'
         } lg:translate-x-0 fixed lg:sticky top-0 left-0 z-40 h-screen ${
           isExpanded ? 'w-[250px]' : 'w-[72px]'
-        } ${darkMode ? 'bg-[#1e2738] border-gray-700/60' : 'bg-white border-gray-100/90'} border-r flex flex-col transition-all duration-300 ease-in-out shrink-0 shadow-sm group`}
+        } bg-white dark:bg-crystal-900 border-r border-gray-200/80 dark:border-white/[0.08] flex flex-col transition-all duration-300 ease-in-out shrink-0 shadow-sm group`}
       >
         {/* Logo Header */}
-        <div className="h-[68px] px-4 flex items-center justify-between border-b border-gray-100/70">
+        <div className="h-[68px] px-4 flex items-center justify-between border-b border-gray-100 dark:border-white/[0.08]">
           <button
             onClick={() => onGoHome ? onGoHome() : navigate('overview')}
             className="flex items-center gap-3 text-left focus:outline-none cursor-pointer"
             title="Go to Home Landing Page"
           >
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center text-white shadow-md shadow-indigo-500/25 shrink-0 transition-transform active:scale-95">
+            <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-blue-600 to-sky-500 flex items-center justify-center text-white shadow-md shadow-blue-500/25 shrink-0 transition-transform active:scale-95">
               <Eye className="w-5.5 h-5.5 text-white" strokeWidth={2.5} />
             </div>
             {isExpanded && (
-              <span className="text-xl font-bold tracking-tight text-gray-900 transition-opacity duration-200 opacity-100">
-                Biz<span className="text-indigo-600">Eye</span>
+              <span className="text-xl font-bold tracking-tight text-gray-900 dark:text-white transition-opacity duration-200 opacity-100">
+                Biz<span className="text-blue-600 dark:text-sky-400">Eye</span>
               </span>
             )}
           </button>
@@ -156,10 +202,10 @@ export default function Dashboard({ userInfo, onUpdateUserInfo, onLogout, onGoHo
           {isExpanded && (
             <button
               onClick={() => setIsSidebarPinned(!isSidebarPinned)}
-              className="hidden lg:flex p-1.5 rounded-lg text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors cursor-pointer"
+              className="hidden lg:flex p-1.5 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-crystal-800 transition-colors cursor-pointer"
               title={isSidebarPinned ? 'Unpin sidebar' : 'Pin sidebar expanded'}
             >
-              <div className={`w-2 h-2 rounded-full ${isSidebarPinned ? 'bg-indigo-600' : 'border border-gray-400'}`} />
+              <div className={`w-2 h-2 rounded-full ${isSidebarPinned ? 'bg-blue-600' : 'border border-gray-400'}`} />
             </button>
           )}
         </div>
@@ -175,7 +221,7 @@ export default function Dashboard({ userInfo, onUpdateUserInfo, onLogout, onGoHo
               {onGoHome && (
                 <button
                   onClick={onGoHome}
-                  className="w-full flex items-center gap-3.5 px-3 py-3 rounded-2xl text-sm font-medium text-gray-600 hover:text-indigo-600 hover:bg-indigo-50/70 transition-all duration-200 cursor-pointer active:scale-[0.98]"
+                  className="w-full flex items-center gap-3.5 px-3 py-3 rounded-2xl text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-sky-400 hover:bg-blue-50/70 dark:hover:bg-blue-900/20 transition-all duration-200 cursor-pointer active:scale-[0.98]"
                   title={!isExpanded ? 'Home Landing Page' : undefined}
                 >
                   <Home className="w-5 h-5 shrink-0 text-gray-500" />
@@ -191,8 +237,8 @@ export default function Dashboard({ userInfo, onUpdateUserInfo, onLogout, onGoHo
                     onClick={() => navigate(item.id)}
                     className={`w-full flex items-center gap-3.5 px-3 py-3 rounded-2xl text-sm font-medium transition-all duration-200 cursor-pointer active:scale-[0.98] ${
                       active
-                        ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/30'
-                        : 'text-gray-600 hover:text-indigo-600 hover:bg-indigo-50/70'
+                        ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30 font-semibold'
+                        : 'text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-sky-400 hover:bg-blue-50/70 dark:hover:bg-blue-900/20'
                     }`}
                     title={!isExpanded ? item.label : undefined}
                   >
@@ -220,8 +266,8 @@ export default function Dashboard({ userInfo, onUpdateUserInfo, onLogout, onGoHo
                     onClick={() => navigate(item.id)}
                     className={`w-full flex items-center gap-3.5 px-3 py-3 rounded-2xl text-sm font-medium transition-all duration-200 cursor-pointer active:scale-[0.98] ${
                       active
-                        ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/30'
-                        : 'text-gray-600 hover:text-indigo-600 hover:bg-indigo-50/70'
+                        ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30 font-semibold'
+                        : 'text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-sky-400 hover:bg-blue-50/70 dark:hover:bg-blue-900/20'
                     }`}
                     title={!isExpanded ? item.label : undefined}
                   >
@@ -230,7 +276,7 @@ export default function Dashboard({ userInfo, onUpdateUserInfo, onLogout, onGoHo
                       <>
                         <span className="truncate flex-1 text-left">{item.label}</span>
                         {item.badge && (
-                          <span className="bg-cyan-400 text-black font-bold text-[10px] px-2 py-0.5 rounded-full shadow-xs">
+                          <span className="bg-sky-400 text-black font-extrabold text-[10px] px-2 py-0.5 rounded-full shadow-xs">
                             {item.badge}
                           </span>
                         )}
@@ -256,8 +302,8 @@ export default function Dashboard({ userInfo, onUpdateUserInfo, onLogout, onGoHo
                     onClick={() => navigate(item.id)}
                     className={`w-full flex items-center gap-3.5 px-3 py-3 rounded-2xl text-sm font-medium transition-all duration-200 cursor-pointer active:scale-[0.98] ${
                       active
-                        ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/30'
-                        : 'text-gray-600 hover:text-indigo-600 hover:bg-indigo-50/70'
+                        ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30 font-semibold'
+                        : 'text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-sky-400 hover:bg-blue-50/70 dark:hover:bg-blue-900/20'
                     }`}
                     title={!isExpanded ? item.label : undefined}
                   >
@@ -283,16 +329,16 @@ export default function Dashboard({ userInfo, onUpdateUserInfo, onLogout, onGoHo
         </div>
 
         {/* User Card at Sidebar Bottom */}
-        <div className="p-3 border-t border-gray-100/80 bg-blue-50/40">
-          <div className="flex items-center justify-between gap-2 p-2.5 rounded-2xl hover:bg-white transition-all shadow-2xs">
+        <div className="p-3 border-t border-gray-100/80 dark:border-gray-700/50 bg-blue-50/40 dark:bg-blue-950/20">
+          <div className="flex items-center justify-between gap-2 p-2 rounded-2xl hover:bg-white dark:hover:bg-gray-800 transition-all shadow-2xs">
             <div className="flex items-center gap-3 cursor-pointer min-w-0" onClick={() => navigate('profile')}>
-              <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-indigo-500 to-sky-400 text-white font-bold text-sm flex items-center justify-center shadow-sm shrink-0">
+              <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-blue-600 to-sky-400 text-white font-bold text-sm flex items-center justify-center shadow-md shadow-blue-500/25 ring-2 ring-blue-500/20 shrink-0">
                 {initials}
               </div>
               {isExpanded && (
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs font-bold text-gray-900 truncate leading-tight">{userInfo.username}</p>
-                  <p className="text-[10px] text-gray-500 truncate leading-tight">{userInfo.role || 'Business Owner'}</p>
+                  <p className="text-xs font-bold text-gray-900 dark:text-white truncate leading-tight">{userInfo.username}</p>
+                  <p className="text-[10px] text-gray-500 dark:text-gray-400 truncate leading-tight">{userInfo.role || 'Business Owner'}</p>
                 </div>
               )}
             </div>
@@ -322,27 +368,27 @@ export default function Dashboard({ userInfo, onUpdateUserInfo, onLogout, onGoHo
       <div className="flex-1 min-w-0 flex flex-col">
 
         {/* ── TOP HEADER BAR ── */}
-        <header className="sticky top-0 z-20 bg-white/90 backdrop-blur-md border-b border-gray-100/90 h-[68px] flex items-center justify-between px-6 transition-all duration-200">
+        <header className="sticky top-0 z-20 bg-white/95 dark:bg-crystal-900/95 backdrop-blur-md border-b border-gray-200/80 dark:border-white/[0.08] h-[68px] flex items-center justify-between px-6 transition-colors duration-200">
           {/* Left Side: Navigation Quick Tabs & Search */}
           <div className="flex items-center gap-4">
             <button
               onClick={() => setMobileSidebarOpen(true)}
-              className="lg:hidden p-2 rounded-xl text-gray-600 hover:bg-gray-100 transition-colors"
+              className="lg:hidden p-2 rounded-xl text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-crystal-800 transition-colors"
               aria-label="Open sidebar"
             >
-              <div className="w-5 h-0.5 bg-gray-700 rounded mb-1" />
-              <div className="w-5 h-0.5 bg-gray-700 rounded mb-1" />
-              <div className="w-3.5 h-0.5 bg-gray-700 rounded" />
+              <div className="w-5 h-0.5 bg-gray-700 dark:bg-gray-300 rounded mb-1" />
+              <div className="w-5 h-0.5 bg-gray-700 dark:bg-gray-300 rounded mb-1" />
+              <div className="w-3.5 h-0.5 bg-gray-700 dark:bg-gray-300 rounded" />
             </button>
 
             {/* Quick Nav Links */}
-            <div className="hidden md:flex items-center gap-1 bg-gray-100/70 p-1 rounded-2xl text-xs font-medium text-gray-600">
+            <div className="hidden md:flex items-center gap-1 bg-gray-100/80 dark:bg-crystal-800 p-1 rounded-2xl text-xs font-medium text-gray-600 dark:text-gray-300 border border-gray-200/50 dark:border-white/[0.04]">
               {onGoHome && (
                 <button
                   onClick={onGoHome}
-                  className="px-3 py-1.5 rounded-xl hover:text-indigo-600 hover:bg-white transition-all flex items-center gap-1 font-semibold cursor-pointer"
+                  className="px-3 py-1.5 rounded-xl hover:text-blue-600 hover:bg-white dark:hover:bg-crystal-700 dark:hover:text-sky-300 transition-all flex items-center gap-1 font-semibold cursor-pointer"
                 >
-                  <Home className="w-3.5 h-3.5 text-indigo-600" /> Home Landing
+                  <Home className="w-3.5 h-3.5 text-blue-600 dark:text-sky-400" /> Home Landing
                 </button>
               )}
 
@@ -356,7 +402,7 @@ export default function Dashboard({ userInfo, onUpdateUserInfo, onLogout, onGoHo
                   key={t.id}
                   onClick={() => navigate(t.id as any)}
                   className={`px-3 py-1.5 rounded-xl transition-all cursor-pointer ${
-                    section === t.id ? 'bg-white text-gray-900 shadow-2xs font-semibold' : 'hover:text-gray-900'
+                    section === t.id ? 'bg-white dark:bg-crystal-700 text-gray-900 dark:text-white shadow-2xs font-semibold' : 'hover:text-gray-900 dark:hover:text-white'
                   }`}
                 >
                   {t.label}
@@ -372,31 +418,56 @@ export default function Dashboard({ userInfo, onUpdateUserInfo, onLogout, onGoHo
                 value={searchValue}
                 onChange={(e) => setSearchValue(e.target.value)}
                 placeholder="Search metrics, datasets..."
-                className="w-44 sm:w-64 bg-gray-50 border border-gray-200/80 rounded-2xl pl-9 pr-8 py-1.5 text-xs text-gray-800 placeholder-gray-400 focus:outline-none focus:border-indigo-400 focus:bg-white focus:w-72 transition-all duration-200"
+                className="w-44 sm:w-64 bg-gray-50 dark:bg-crystal-800 border border-gray-200/80 dark:border-white/[0.1] rounded-2xl pl-9 pr-8 py-1.5 text-xs text-gray-800 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:border-blue-500 focus:bg-white dark:focus:bg-crystal-750 focus:w-72 transition-all duration-200"
               />
-              <span className="hidden sm:inline-block absolute right-3 text-[10px] font-mono text-gray-400 bg-gray-200/60 px-1.5 py-0.5 rounded">⌘K</span>
+              <span className="hidden sm:inline-block absolute right-3 text-[10px] font-mono text-gray-400 bg-gray-200/60 dark:bg-crystal-700 px-1.5 py-0.5 rounded">⌘K</span>
             </div>
           </div>
 
           {/* Right Side Actions */}
           <div className="flex items-center gap-2">
-            <button className="hidden sm:flex items-center justify-center w-9 h-9 rounded-2xl hover:bg-gray-100 text-gray-600 transition-colors text-base cursor-pointer" title="Language">
-              🇬🇧
-            </button>
+            {/* Country Flag Selector Dropdown (Icon Only - Default India 🇮🇳) */}
+            <div className="relative" ref={countryDropdownRef}>
+              <button
+                onClick={() => setCountryDropdownOpen(!countryDropdownOpen)}
+                className="w-10 h-10 rounded-2xl hover:bg-gray-100 dark:hover:bg-crystal-800 text-gray-700 dark:text-gray-200 transition-all cursor-pointer border border-gray-200/80 dark:border-white/[0.1] bg-white dark:bg-crystal-800 shadow-2xs flex items-center justify-center shrink-0"
+                title={`Selected: ${selectedCountry.name} (${selectedCountry.currency})`}
+              >
+                <span className="text-xl leading-none select-none flex items-center justify-center">{selectedCountry.flag}</span>
+              </button>
 
-            <button className="hidden sm:flex relative items-center justify-center w-9 h-9 rounded-2xl hover:bg-gray-100 text-gray-600 transition-colors cursor-pointer" title="Cart">
-              <ShoppingCart className="w-4.5 h-4.5" />
-              <span className="absolute top-1.5 right-1.5 w-4 h-4 bg-rose-500 text-white font-bold text-[9px] rounded-full flex items-center justify-center ring-2 ring-white">
-                0
-              </span>
-            </button>
+              {countryDropdownOpen && (
+                <div className="absolute right-0 mt-2 w-[196px] p-2.5 bg-white dark:bg-crystal-850 border border-gray-200/80 dark:border-white/[0.1] rounded-3xl shadow-xl z-50 animate-fade-in">
+                  <div className="grid grid-cols-4 gap-2">
+                    {COUNTRIES.map((c) => (
+                      <button
+                        key={c.code}
+                        onClick={() => {
+                          setSelectedCountry(c);
+                          setCountryDropdownOpen(false);
+                        }}
+                        className={`w-9 h-9 rounded-xl flex items-center justify-center text-xl transition-all cursor-pointer hover:scale-110 active:scale-95 shrink-0 ${
+                          selectedCountry.code === c.code
+                            ? 'bg-blue-50 dark:bg-blue-950/60 ring-2 ring-blue-500 shadow-2xs'
+                            : 'hover:bg-gray-100 dark:hover:bg-crystal-800'
+                        }`}
+                        title={`${c.name} • ${c.currency} (${c.symbol})`}
+                      >
+                        <span className="leading-none select-none flex items-center justify-center">{c.flag}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
 
+            {/* Dark/Light Toggle */}
             <button
               onClick={() => setDarkMode(!darkMode)}
-              className="p-2 rounded-2xl text-gray-600 hover:bg-gray-100 transition-colors cursor-pointer"
+              className="p-2 rounded-2xl text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-crystal-800 transition-colors cursor-pointer border border-transparent hover:border-gray-200/80 dark:hover:border-white/[0.08]"
               title="Toggle theme"
             >
-              {darkMode ? <Sun className="w-4.5 h-4.5 text-amber-400" /> : <Moon className="w-4.5 h-4.5" />}
+              {darkMode ? <Sun className="w-4.5 h-4.5 text-amber-400" /> : <Moon className="w-4.5 h-4.5 text-gray-600" />}
             </button>
 
             {/* Notifications Dropdown Trigger */}
@@ -405,40 +476,48 @@ export default function Dashboard({ userInfo, onUpdateUserInfo, onLogout, onGoHo
                 type="button"
                 onClick={() => setNotificationsOpen(!notificationsOpen)}
                 className={`relative p-2 rounded-2xl transition-all cursor-pointer ${
-                  notificationsOpen ? 'bg-indigo-50 text-indigo-600' : 'text-gray-600 hover:bg-gray-100'
+                  notificationsOpen ? 'bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-sky-400' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-crystal-800'
                 }`}
                 title="Notifications"
               >
                 <Bell className="w-4.5 h-4.5" />
                 {unreadCount > 0 && (
-                  <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-indigo-600 rounded-full ring-2 ring-white animate-pulse" />
+                  <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-blue-600 rounded-full ring-2 ring-white dark:ring-crystal-900 animate-pulse" />
                 )}
               </button>
 
               {/* Notifications Panel */}
               {notificationsOpen && (
-                <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white border border-gray-100 rounded-3xl shadow-xl z-50 animate-fade-in overflow-hidden">
-                  <div className="px-5 py-3.5 bg-gray-50/70 border-b border-gray-100 flex items-center justify-between">
+                <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white dark:bg-crystal-850 border border-gray-200/80 dark:border-white/[0.1] rounded-3xl shadow-xl z-50 animate-fade-in overflow-hidden">
+                  <div className="px-5 py-3.5 bg-gray-50/80 dark:bg-crystal-800/80 border-b border-gray-100 dark:border-white/[0.06] flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-bold text-gray-900">Notifications</span>
+                      <span className="text-sm font-bold text-gray-900 dark:text-white">Notifications</span>
                       {unreadCount > 0 && (
-                        <span className="bg-indigo-100 text-indigo-700 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                        <span className="bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-sky-300 text-[10px] font-bold px-2 py-0.5 rounded-full">
                           {unreadCount} new
                         </span>
                       )}
                     </div>
-                    {unreadCount > 0 && (
-                      <button onClick={handleMarkAllRead} className="text-xs text-indigo-600 font-semibold hover:underline cursor-pointer">
-                        Mark all read
-                      </button>
+                    {notifications.length > 0 && (
+                      <div className="flex items-center gap-2">
+                        {unreadCount > 0 && (
+                          <button onClick={handleMarkAllRead} className="text-xs text-blue-600 dark:text-sky-400 font-semibold hover:underline cursor-pointer">
+                            Mark read
+                          </button>
+                        )}
+                        <button onClick={handleClearNotifications} className="text-xs text-gray-400 hover:text-rose-500 font-semibold cursor-pointer">
+                          Clear
+                        </button>
+                      </div>
                     )}
                   </div>
 
-                  <div className="max-h-80 overflow-y-auto divide-y divide-gray-50">
+                  <div className="max-h-80 overflow-y-auto divide-y divide-gray-50 dark:divide-white/[0.04]">
                     {notifications.length === 0 ? (
                       <div className="p-8 text-center text-gray-400">
-                        <Bell className="w-8 h-8 mx-auto mb-2 opacity-30" />
-                        <p className="text-xs">No notifications right now.</p>
+                        <Bell className="w-8 h-8 mx-auto mb-2 opacity-30 text-gray-400" />
+                        <p className="text-xs font-semibold text-gray-600 dark:text-gray-300">No notifications yet</p>
+                        <p className="text-[11px] text-gray-400 mt-0.5">Upload a sales CSV dataset to receive automated intelligence alerts.</p>
                       </div>
                     ) : (
                       notifications.map((item) => (
@@ -446,14 +525,14 @@ export default function Dashboard({ userInfo, onUpdateUserInfo, onLogout, onGoHo
                           key={item.id}
                           onClick={() => handleMarkSingleRead(item.id)}
                           className={`p-4 transition-colors cursor-pointer flex gap-3 ${
-                            item.unread ? 'bg-indigo-50/40 hover:bg-indigo-50/70' : 'hover:bg-gray-50'
+                            item.unread ? 'bg-blue-50/40 dark:bg-blue-950/20 hover:bg-blue-50/70 dark:hover:bg-blue-950/30' : 'hover:bg-gray-50 dark:hover:bg-crystal-800/40'
                           }`}
                         >
                           <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${
-                            item.type === 'predictive' ? 'bg-blue-100 text-blue-600' :
-                            item.type === 'warning' ? 'bg-amber-100 text-amber-600' :
-                            item.type === 'sentiment' ? 'bg-emerald-100 text-emerald-600' :
-                            'bg-gray-100 text-gray-600'
+                            item.type === 'predictive' ? 'bg-blue-100 dark:bg-blue-950/60 text-blue-600 dark:text-sky-400' :
+                            item.type === 'warning' ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-600' :
+                            item.type === 'sentiment' ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600' :
+                            'bg-gray-100 dark:bg-crystal-800 text-gray-600'
                           }`}>
                             {item.type === 'predictive' && <TrendingUp className="w-4 h-4" />}
                             {item.type === 'warning' && <AlertTriangle className="w-4 h-4" />}
@@ -461,8 +540,8 @@ export default function Dashboard({ userInfo, onUpdateUserInfo, onLogout, onGoHo
                             {item.type === 'system' && <Info className="w-4 h-4" />}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className={`text-xs font-bold ${item.unread ? 'text-gray-900' : 'text-gray-600'}`}>{item.title}</p>
-                            <p className="text-xs text-gray-500 mt-0.5 leading-relaxed line-clamp-2">{item.desc}</p>
+                            <p className={`text-xs font-bold ${item.unread ? 'text-gray-900 dark:text-white' : 'text-gray-600 dark:text-gray-400'}`}>{item.title}</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 leading-relaxed line-clamp-2">{item.desc}</p>
                             <span className="text-[10px] text-gray-400 font-mono mt-1 block">{item.time}</span>
                           </div>
                         </div>
@@ -477,42 +556,42 @@ export default function Dashboard({ userInfo, onUpdateUserInfo, onLogout, onGoHo
             <div className="relative" ref={profileDropdownRef}>
               <button
                 onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
-                className="flex items-center gap-1.5 pl-2 pr-2.5 py-1 rounded-2xl hover:bg-gray-100 transition-all cursor-pointer active:scale-95 border border-gray-200/60 bg-white"
+                className="flex items-center gap-1.5 p-1 rounded-full hover:bg-gray-100 dark:hover:bg-crystal-800 transition-all cursor-pointer active:scale-95 border border-gray-200/80 dark:border-white/[0.1] bg-white dark:bg-crystal-800"
               >
-                <div className="w-8.5 h-8.5 rounded-full bg-gradient-to-tr from-indigo-500 to-sky-400 text-white font-bold text-xs flex items-center justify-center shadow-md shadow-indigo-500/20">
+                <div className="w-8.5 h-8.5 rounded-full bg-gradient-to-tr from-blue-600 to-sky-400 text-white font-bold text-xs flex items-center justify-center shadow-md shadow-blue-500/25 ring-2 ring-blue-500/20">
                   {initials}
                 </div>
-                <ChevronDown className="w-3.5 h-3.5 text-gray-500" />
+                <ChevronDown className="w-3.5 h-3.5 text-gray-500 pr-1" />
               </button>
 
               {/* Profile Dropdown Menu */}
               {profileDropdownOpen && (
-                <div className="absolute right-0 mt-2 w-64 bg-white border border-gray-100 rounded-3xl shadow-xl py-2 z-50 animate-fade-in divide-y divide-gray-100">
+                <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-crystal-850 border border-gray-200/80 dark:border-white/[0.1] rounded-3xl shadow-xl py-2 z-50 animate-fade-in divide-y divide-gray-100 dark:divide-white/[0.06]">
                   <div className="px-5 py-3">
-                    <p className="text-sm font-bold text-gray-900 truncate">{userInfo.username}</p>
-                    <p className="text-xs text-gray-500 truncate mt-0.5">{userInfo.email}</p>
-                    <div className="mt-2 inline-flex items-center gap-1 bg-indigo-50 text-indigo-700 text-[10px] font-bold px-2.5 py-0.5 rounded-full border border-indigo-100">
-                      <Sparkles className="w-3 h-3 text-indigo-500" /> Pro Member
+                    <p className="text-sm font-bold text-gray-900 dark:text-white truncate">{userInfo.username}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 truncate mt-0.5">{userInfo.email}</p>
+                    <div className="mt-2 inline-flex items-center gap-1 bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-sky-300 text-[10px] font-bold px-2.5 py-0.5 rounded-full border border-blue-100 dark:border-blue-900/50">
+                      <Sparkles className="w-3 h-3 text-blue-500" /> Pro Member
                     </div>
                   </div>
 
                   <div className="py-1">
                     <button
                       onClick={() => navigate('profile')}
-                      className="w-full text-left px-5 py-2.5 text-xs font-semibold text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 flex items-center gap-2.5 transition-colors cursor-pointer"
+                      className="w-full text-left px-5 py-2.5 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-blue-50 dark:hover:bg-crystal-800 hover:text-blue-600 dark:hover:text-sky-400 flex items-center gap-2.5 transition-colors cursor-pointer"
                     >
                       <User className="w-4 h-4 text-gray-400" /> View Profile
                     </button>
                     <button
                       onClick={() => navigate('settings')}
-                      className="w-full text-left px-5 py-2.5 text-xs font-semibold text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 flex items-center gap-2.5 transition-colors cursor-pointer"
+                      className="w-full text-left px-5 py-2.5 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-blue-50 dark:hover:bg-crystal-800 hover:text-blue-600 dark:hover:text-sky-400 flex items-center gap-2.5 transition-colors cursor-pointer"
                     >
                       <Settings className="w-4 h-4 text-gray-400" /> Settings & Preferences
                     </button>
                     {onGoHome && (
                       <button
                         onClick={onGoHome}
-                        className="w-full text-left px-5 py-2.5 text-xs font-semibold text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 flex items-center gap-2.5 transition-colors cursor-pointer"
+                        className="w-full text-left px-5 py-2.5 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-blue-50 dark:hover:bg-crystal-800 hover:text-blue-600 dark:hover:text-sky-400 flex items-center gap-2.5 transition-colors cursor-pointer"
                       >
                         <Home className="w-4 h-4 text-gray-400" /> Home Landing Page
                       </button>
@@ -525,7 +604,7 @@ export default function Dashboard({ userInfo, onUpdateUserInfo, onLogout, onGoHo
                         setProfileDropdownOpen(false);
                         onLogout();
                       }}
-                      className="w-full text-left px-5 py-2.5 text-xs font-bold text-rose-600 hover:bg-rose-50 flex items-center gap-2.5 transition-colors cursor-pointer"
+                      className="w-full text-left px-5 py-2.5 text-xs font-bold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 flex items-center gap-2.5 transition-colors cursor-pointer"
                     >
                       <LogOut className="w-4 h-4 text-rose-500" /> Sign Out / Log Out
                     </button>
@@ -544,7 +623,8 @@ export default function Dashboard({ userInfo, onUpdateUserInfo, onLogout, onGoHo
           {section === 'predictive'  && <Predictive   onNavigate={navigate} data={dashboardData} />}
           {section === 'upload' && (
             <DataUpload
-              onDataLoaded={(d) => { setDashboardData(d); setSection('overview'); }}
+              onDataLoaded={handleDatasetLoaded}
+              onDataCleared={handleDatasetRemoved}
               currentData={dashboardData}
             />
           )}
@@ -557,14 +637,23 @@ export default function Dashboard({ userInfo, onUpdateUserInfo, onLogout, onGoHo
         </main>
       </div>
 
-      {/* ── FLOATING QUICK SETTINGS GEAR BUTTON ── */}
+      {/* ── FLOATING AI CHATBOT BUTTON ── */}
       <button
-        onClick={() => navigate('settings')}
-        className="fixed bottom-6 right-6 z-50 w-12 h-12 rounded-full bg-indigo-600 hover:bg-indigo-700 text-white shadow-xl shadow-indigo-500/40 flex items-center justify-center transition-all duration-300 hover:scale-110 active:scale-95 cursor-pointer"
-        title="Quick Dashboard Settings"
+        onClick={() => setChatbotOpen(true)}
+        className="fixed bottom-6 right-6 z-40 group flex items-center justify-center w-14 h-14 bg-gradient-to-tr from-blue-600 via-blue-700 to-sky-400 hover:from-blue-700 hover:to-sky-500 text-white rounded-full border-2 border-white/80 ring-4 ring-white/20 shadow-xl shadow-blue-500/40 transition-all duration-300 hover:scale-110 active:scale-95 cursor-pointer"
+        title="BizEye AI Assistant"
       >
-        <Settings className="w-5.5 h-5.5 animate-spin-slow" />
+        <Bot className="w-6 h-6 text-white" />
       </button>
+
+      {/* ── INTERACTIVE AI CHATBOT MODAL SCREEN ── */}
+      <ChatbotModal
+        isOpen={chatbotOpen}
+        onClose={() => setChatbotOpen(false)}
+        data={dashboardData}
+        userInfo={userInfo}
+        onNavigate={navigate}
+      />
     </div>
   );
 }
