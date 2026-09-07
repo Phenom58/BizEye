@@ -1,37 +1,66 @@
 import { useState, useRef } from 'react';
-import { Upload, FileText, CheckCircle, AlertCircle, X, ArrowRight, Table, Trash2 } from 'lucide-react';
+import { Upload, FileText, CheckCircle, AlertCircle, Table, Trash2, Sparkles, Cpu } from 'lucide-react';
 import type { DashboardData } from '@/utils/csvParser';
 
+export interface UploadState {
+  isUploading: boolean;
+  fileName: string;
+  progress: number;
+  error: string | null;
+}
+
 interface Props {
+  uploadState?: UploadState;
+  onStartUpload?: (file: File) => void;
   onDataLoaded: (data: DashboardData, fileName?: string) => void;
   onDataCleared?: () => void;
   currentData: DashboardData | null;
 }
 
-export default function DataUpload({ onDataLoaded, onDataCleared, currentData }: Props) {
+const PROCESSING_STEPS = [
+  { id: 1, label: 'Reading CSV Stream' },
+  { id: 2, label: 'Validating Schema & Columns' },
+  { id: 3, label: 'Calculating Revenue & Sentiment' },
+  { id: 4, label: 'Generating AI 30-Day Forecast' },
+];
+
+export default function DataUpload({
+  uploadState,
+  onStartUpload,
+  onDataLoaded,
+  onDataCleared,
+  currentData
+}: Props) {
   const [dragOver, setDragOver] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState(false);
-  const [fileName, setFileName] = useState('');
+  const [localLoading, setLocalLoading] = useState(false);
+  const [localError, setLocalError] = useState('');
+  const [localFileName, setLocalFileName] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const handleFile = async (file: File) => {
-    setError('');
-    setSuccess(false);
+  const isUploading = uploadState ? uploadState.isUploading : localLoading;
+  const fileName = uploadState ? uploadState.fileName : localFileName;
+  const error = uploadState ? uploadState.error : localError;
+  const progress = uploadState ? uploadState.progress : 60;
 
-    if (!file.name.endsWith('.csv')) {
-      setError('Please upload a valid .csv file.');
+  const handleFile = async (file: File) => {
+    if (onStartUpload) {
+      onStartUpload(file);
+      return;
+    }
+
+    setLocalError('');
+    if (!file.name.toLowerCase().endsWith('.csv')) {
+      setLocalError('Please upload a valid .csv file.');
       return;
     }
 
     if (file.size > 50 * 1024 * 1024) {
-      setError('File too large. Maximum size is 50MB.');
+      setLocalError('File too large. Maximum size is 50MB.');
       return;
     }
 
-    setLoading(true);
-    setFileName(file.name);
+    setLocalLoading(true);
+    setLocalFileName(file.name);
 
     try {
       const formData = new FormData();
@@ -45,17 +74,16 @@ export default function DataUpload({ onDataLoaded, onDataCleared, currentData }:
       const resData = await response.json();
 
       if (!response.ok || !resData.success) {
-        setError(resData.detail || resData.error || 'Failed to process file on backend server.');
-        setLoading(false);
+        setLocalError(resData.detail || resData.error || 'Failed to process file on backend server.');
+        setLocalLoading(false);
         return;
       }
 
       onDataLoaded(resData.data, file.name);
-      setSuccess(true);
+      setLocalLoading(false);
     } catch (err) {
-      setError('Unable to connect to the backend server. Please make sure the FastAPI server is running.');
-    } finally {
-      setLoading(false);
+      setLocalError('Unable to connect to the backend server. Please make sure the FastAPI server is running on port 8000.');
+      setLocalLoading(false);
     }
   };
 
@@ -72,8 +100,7 @@ export default function DataUpload({ onDataLoaded, onDataCleared, currentData }:
   };
 
   const handleClear = () => {
-    setSuccess(false);
-    setFileName('');
+    setLocalFileName('');
     if (fileRef.current) fileRef.current.value = '';
     if (onDataCleared) onDataCleared();
   };
@@ -92,55 +119,83 @@ export default function DataUpload({ onDataLoaded, onDataCleared, currentData }:
         onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
         onDragLeave={() => setDragOver(false)}
         onDrop={handleDrop}
-        className={`relative border-2 border-dashed rounded-3xl p-12 text-center transition-all duration-300 cursor-pointer ${
+        className={`relative border-2 border-dashed rounded-3xl p-8 sm:p-12 text-center transition-all duration-300 cursor-pointer overflow-hidden ${
           dragOver
             ? 'border-blue-500 bg-blue-50/50 dark:bg-blue-950/30 scale-[1.01]'
             : error
             ? 'border-rose-300 dark:border-rose-500/30 bg-rose-50/20 dark:bg-rose-950/20'
-            : success
+            : currentData
             ? 'border-emerald-300 dark:border-emerald-500/30 bg-emerald-50/20 dark:bg-emerald-950/20'
             : 'border-gray-200/90 dark:border-white/[0.08] bg-white dark:bg-crystal-900 hover:border-blue-400 dark:hover:border-blue-500/50 hover:bg-blue-50/20 dark:hover:bg-crystal-850 shadow-xs'
         }`}
-        onClick={() => fileRef.current?.click()}
+        onClick={() => !isUploading && fileRef.current?.click()}
       >
         <input ref={fileRef} type="file" accept=".csv" onChange={handleChange} className="hidden" />
 
-        {loading ? (
-          <div className="flex flex-col items-center gap-4">
-            <div className="w-12 h-12 border-3 border-blue-600 border-t-transparent rounded-full animate-spin" />
-            <div>
-              <p className="text-sm font-bold text-gray-800 dark:text-gray-200">Processing {fileName}…</p>
-              <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Parsing rows and computing analytics</p>
+        {isUploading ? (
+          <div className="flex flex-col items-center max-w-md mx-auto space-y-6 animate-fade-in">
+            {/* Animated Glowing Ring & Icon */}
+            <div className="relative flex items-center justify-center">
+              <div className="w-20 h-20 rounded-full border-4 border-blue-500/20 dark:border-blue-500/20 border-t-blue-600 dark:border-t-sky-400 animate-spin" />
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-blue-600 to-sky-400 text-white flex items-center justify-center shadow-lg shadow-blue-500/30 animate-pulse">
+                  <Sparkles className="w-6 h-6 text-white" />
+                </div>
+              </div>
+            </div>
+
+            {/* Title & File Name */}
+            <div className="text-center space-y-1">
+              <h3 className="text-base font-extrabold text-gray-900 dark:text-white">
+                Processing {fileName || 'Dataset'}
+              </h3>
+            </div>
+
+            {/* Visual Animated Progress Bar */}
+            <div className="w-full space-y-2">
+              <div className="flex items-center justify-between text-xs font-mono">
+                <span className="text-blue-600 dark:text-sky-400 font-bold flex items-center gap-1.5">
+                  <Cpu className="w-3.5 h-3.5 animate-spin" />
+                  Analyzing Store Analytics...
+                </span>
+                <span className="font-extrabold text-gray-700 dark:text-gray-200">{progress}%</span>
+              </div>
+              <div className="w-full h-2.5 bg-gray-100 dark:bg-crystal-800 rounded-full overflow-hidden p-0.5 border border-gray-200/50 dark:border-white/[0.06]">
+                <div
+                  className="h-full bg-gradient-to-r from-blue-600 via-sky-500 to-indigo-500 rounded-full transition-all duration-300 shadow-sm"
+                  style={{ width: `${progress}%` }}
+                />
+              </div>
             </div>
           </div>
-        ) : success ? (
-          <div className="flex flex-col items-center gap-4">
-            <div className="w-14 h-14 bg-emerald-100/70 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 rounded-2xl flex items-center justify-center shadow-xs">
-              <CheckCircle className="w-7 h-7" />
+        ) : currentData ? (
+          <div className="flex flex-col items-center gap-4 animate-fade-in">
+            <div className="w-16 h-16 bg-emerald-100/80 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 rounded-3xl flex items-center justify-center shadow-lg shadow-emerald-500/20 border border-emerald-200 dark:border-emerald-500/30">
+              <CheckCircle className="w-8 h-8" />
             </div>
             <div>
-              <p className="text-sm font-bold text-emerald-700 dark:text-emerald-400">Dataset Loaded Successfully!</p>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{fileName} • Click to upload a different CSV</p>
+              <p className="text-base font-bold text-emerald-700 dark:text-emerald-400">Dataset Loaded Successfully!</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Click to upload a different CSV</p>
             </div>
           </div>
         ) : error ? (
-          <div className="flex flex-col items-center gap-4">
-            <div className="w-14 h-14 bg-rose-100/70 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 rounded-2xl flex items-center justify-center shadow-xs">
-              <AlertCircle className="w-7 h-7" />
+          <div className="flex flex-col items-center gap-4 animate-fade-in">
+            <div className="w-16 h-16 bg-rose-100/80 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400 rounded-3xl flex items-center justify-center shadow-lg shadow-rose-500/20 border border-rose-200 dark:border-rose-500/30">
+              <AlertCircle className="w-8 h-8" />
             </div>
             <div>
-              <p className="text-sm font-bold text-rose-700 dark:text-rose-400">Upload Error</p>
-              <p className="text-xs text-rose-600 dark:text-rose-400 mt-1">{error}</p>
+              <p className="text-base font-bold text-rose-700 dark:text-rose-400">Upload Error</p>
+              <p className="text-xs text-rose-600 dark:text-rose-400 mt-1 max-w-md">{error}</p>
               <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">Click to try again</p>
             </div>
           </div>
         ) : (
           <div className="flex flex-col items-center gap-4">
-            <div className="w-14 h-14 bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-sky-400 rounded-2xl border border-blue-100 dark:border-blue-500/20 flex items-center justify-center shadow-xs">
-              <Upload className="w-6 h-6" />
+            <div className="w-16 h-16 bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-sky-400 rounded-3xl border border-blue-100 dark:border-blue-500/20 flex items-center justify-center shadow-xs">
+              <Upload className="w-7 h-7" />
             </div>
             <div>
-              <p className="text-sm font-bold text-gray-900 dark:text-white">Drag & drop your sales CSV dataset here</p>
+              <p className="text-base font-bold text-gray-900 dark:text-white">Drag & drop your sales CSV dataset here</p>
               <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">or click to browse files · Supports files up to 50MB</p>
             </div>
           </div>
@@ -200,14 +255,8 @@ export default function DataUpload({ onDataLoaded, onDataCleared, currentData }:
               </div>
             ))}
           </div>
-
-          <p className="text-xs text-blue-100 flex items-center gap-1.5 pt-2">
-            <ArrowRight className="w-3.5 h-3.5 text-yellow-300" />
-            Switch tabs to Overview, Performance, Sentiment, or Predictive AI to explore interactive charts.
-          </p>
         </div>
       )}
     </div>
   );
 }
-

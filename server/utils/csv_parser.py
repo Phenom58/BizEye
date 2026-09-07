@@ -2,7 +2,7 @@ import csv
 import io
 import math
 import random
-from datetime import datetime
+from typing import Dict, Any, Tuple
 
 MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
@@ -15,77 +15,11 @@ CATEGORY_COLORS = {
     'Home Appliances': 'bg-rose-400',
 }
 
-
-def validate_csv_headers(content_str: str):
-    lines = [line.strip() for line in content_str.splitlines() if line.strip()]
-    if not lines:
-        return {'valid': False, 'missing': ['All required headers']}
-    
-    first_line = lines[0]
-    headers = [h.strip().lower() for h in first_line.split(',')]
-    
-    required = [
-        'product id', 'transaction id', 'date', 'product category',
-        'product name', 'units sold', 'unit price', 'total revenue',
-        'payment method', 'rating', 'reviews'
-    ]
-    
-    missing = [r for r in required if r not in headers]
-    return {'valid': len(missing) == 0, 'missing': missing}
-
-
-def parse_csv(content_str: str):
-    rows = []
-    reader = csv.reader(io.StringIO(content_str))
-    
-    header = next(reader, None)
-    if not header:
-        return rows
-    
-    for fields in reader:
-        if len(fields) < 11:
-            continue
-        
-        try:
-            transaction_id = int(fields[1]) if fields[1].isdigit() else 0
-        except ValueError:
-            transaction_id = 0
-            
-        try:
-            units_sold = int(fields[5]) if fields[5].isdigit() else 0
-        except ValueError:
-            units_sold = 0
-            
-        try:
-            unit_price = float(fields[6])
-        except ValueError:
-            unit_price = 0.0
-            
-        try:
-            total_revenue = float(fields[7])
-        except ValueError:
-            total_revenue = 0.0
-            
-        try:
-            rating = int(fields[9]) if fields[9].isdigit() else 0
-        except ValueError:
-            rating = 0
-            
-        rows.append({
-            'productId': fields[0].strip(),
-            'transactionId': transaction_id,
-            'date': fields[2].strip(),
-            'category': fields[3].strip(),
-            'productName': fields[4].strip(),
-            'unitsSold': units_sold,
-            'unitPrice': unit_price,
-            'totalRevenue': total_revenue,
-            'paymentMethod': fields[8].strip(),
-            'rating': rating,
-            'review': fields[10].strip() if len(fields) > 10 else '',
-        })
-        
-    return rows
+REQUIRED_HEADERS = {
+    'product id', 'transaction id', 'date', 'product category',
+    'product name', 'units sold', 'unit price', 'total revenue',
+    'payment method', 'rating', 'reviews'
+}
 
 
 def format_inr(n: float) -> str:
@@ -103,67 +37,173 @@ def format_inr(n: float) -> str:
     return f"₹{formatted_other},{last_three}"
 
 
-def compute_analytics(rows: list):
-    total_revenue = sum(r['totalRevenue'] for r in rows)
-    total_orders = len(rows)
-    avg_order_value = total_revenue / total_orders if total_orders > 0 else 0.0
-    avg_rating = sum(r['rating'] for r in rows) / total_orders if total_orders > 0 else 0.0
+def parse_and_compute_analytics_fast(content_str: str) -> Tuple[bool, str, Dict[str, Any], int]:
+    """
+    Blazing fast O(N) streaming single-pass CSV parser and KPI analytics engine.
+    Computes all analytics directly from raw rows without intermediate dictionary allocations.
+    """
+    reader = csv.reader(io.StringIO(content_str))
+    
+    try:
+        header = next(reader, None)
+    except Exception:
+        return False, "Unable to parse CSV file.", {}, 0
+        
+    if not header:
+        return False, "CSV file is empty.", {}, 0
 
-    dates = sorted([r['date'] for r in rows if r['date']])
-    date_range = {
-        'from': dates[0] if dates else '',
-        'to': dates[-1] if dates else ''
-    }
+    # Map column positions from header
+    col_map = {h.strip().lower(): idx for idx, h in enumerate(header)}
+    
+    missing = [r for r in REQUIRED_HEADERS if r not in col_map]
+    if missing:
+        return False, f"Missing required columns: {', '.join(missing)}", {}, 0
 
-    categories = sorted(list(set(r['category'] for r in rows if r['category'])))
+    idx_pid = col_map['product id']
+    idx_tid = col_map['transaction id']
+    idx_date = col_map['date']
+    idx_cat = col_map['product category']
+    idx_name = col_map['product name']
+    idx_units = col_map['units sold']
+    idx_price = col_map['unit price']
+    idx_rev = col_map['total revenue']
+    idx_pm = col_map['payment method']
+    idx_rating = col_map['rating']
+    idx_review = col_map['reviews']
 
-    # Monthly grouping
+    min_cols = max(idx_pid, idx_tid, idx_date, idx_cat, idx_name, idx_units, idx_price, idx_rev, idx_pm, idx_rating) + 1
+
+    total_orders = 0
+    total_revenue = 0.0
+    total_rating = 0
+    categories_set = set()
+    earliest_date = "9999-99-99"
+    latest_date = "0000-00-00"
+
     month_map = {}
-    for row in rows:
-        d = row['date']
-        if len(d) >= 7:
-            key = d[:7]
-            try:
-                month_idx = int(d[5:7]) - 1
-            except ValueError:
-                month_idx = 0
-        else:
-            continue
+    product_map = {}
+    cat_map = {}
+    cat_rating_map = {}
+    
+    positive_count = 0
+    neutral_count = 0
+    negative_count = 0
+    sample_rows = []
+    review_rows = []
 
-        if key not in month_map:
-            month_map[key] = {'revenue': 0.0, 'orders': 0, 'monthIndex': month_idx}
-        month_map[key]['revenue'] += row['totalRevenue']
-        month_map[key]['orders'] += 1
+    # Stream parse directly without allocating millions of dicts
+    for fields in reader:
+        if len(fields) < min_cols:
+            continue
+        
+        try:
+            rev = float(fields[idx_rev])
+        except Exception:
+            rev = 0.0
+            
+        try:
+            rat = int(fields[idx_rating]) if fields[idx_rating].isdigit() else 0
+        except Exception:
+            rat = 0
+
+        try:
+            units = int(fields[idx_units]) if fields[idx_units].isdigit() else 0
+        except Exception:
+            units = 0
+
+        cat = fields[idx_cat].strip()
+        pname = fields[idx_name].strip()
+        d = fields[idx_date].strip()
+
+        total_orders += 1
+        total_revenue += rev
+        total_rating += rat
+
+        if cat:
+            categories_set.add(cat)
+            cat_map[cat] = cat_map.get(cat, 0.0) + rev
+            if cat not in cat_rating_map:
+                cat_rating_map[cat] = [0, 0]
+            cat_rating_map[cat][0] += rat
+            cat_rating_map[cat][1] += 1
+
+        if d:
+            if d < earliest_date:
+                earliest_date = d
+            if d > latest_date:
+                latest_date = d
+            if len(d) >= 7:
+                m_key = d[:7]
+                if m_key not in month_map:
+                    try:
+                        m_idx = int(d[5:7]) - 1
+                    except Exception:
+                        m_idx = 0
+                    month_map[m_key] = [0.0, 0, m_idx]
+                month_map[m_key][0] += rev
+                month_map[m_key][1] += 1
+
+        if pname:
+            if pname not in product_map:
+                product_map[pname] = {'name': pname, 'category': cat, 'unitsSold': 0, 'revenue': 0.0}
+            product_map[pname]['unitsSold'] += units
+            product_map[pname]['revenue'] += rev
+
+        if rat >= 4:
+            positive_count += 1
+        elif rat == 3:
+            neutral_count += 1
+        else:
+            negative_count += 1
+
+        rev_text = fields[idx_review].strip() if idx_review < len(fields) else ''
+        if rev_text and len(rev_text) > 10 and len(review_rows) < 10:
+            review_rows.append({
+                'text': rev_text[:120] + '…' if len(rev_text) > 120 else rev_text,
+                'rating': rat,
+                'productName': pname,
+                'category': cat,
+                'date': d,
+                'sentiment': 'positive' if rat >= 4 else ('neutral' if rat == 3 else 'negative')
+            })
+
+        if len(sample_rows) < 20:
+            sample_rows.append({
+                'productId': fields[idx_pid].strip(),
+                'transactionId': fields[idx_tid].strip(),
+                'date': d,
+                'category': cat,
+                'productName': pname,
+                'unitsSold': units,
+                'unitPrice': fields[idx_price].strip(),
+                'totalRevenue': rev,
+                'paymentMethod': fields[idx_pm].strip(),
+                'rating': rat,
+                'review': rev_text,
+            })
+
+    if total_orders == 0:
+        return False, "No valid data rows found in CSV file.", {}, 0
+
+    avg_order_value = total_revenue / total_orders
+    avg_rating = total_rating / total_orders
+    categories = sorted(list(categories_set))
 
     sorted_months = sorted(month_map.items(), key=lambda x: x[0])
     revenue_by_month = [
         {
-            'month': MONTH_NAMES[data['monthIndex']],
-            'monthIndex': data['monthIndex'],
-            'revenue': data['revenue'],
-            'orders': data['orders']
+            'month': MONTH_NAMES[data[2] % 12],
+            'monthIndex': data[2],
+            'revenue': data[0],
+            'orders': data[1]
         }
         for key, data in sorted_months
     ]
 
-    # Product aggregation
-    product_map = {}
-    for row in rows:
-        pname = row['productName']
-        if pname not in product_map:
-            product_map[pname] = {
-                'name': pname,
-                'category': row['category'],
-                'unitsSold': 0,
-                'revenue': 0.0
-            }
-        product_map[pname]['unitsSold'] += row['unitsSold']
-        product_map[pname]['revenue'] += row['totalRevenue']
-
     products = sorted(product_map.values(), key=lambda x: x['revenue'], reverse=True)
     max_revenue = products[0]['revenue'] if products else 1.0
 
-    random.seed(42) # Consistent deterministic growth values
+    random.seed(42)
     product_stats = []
     total_prods = len(products)
     for i, p in enumerate(products):
@@ -202,12 +242,6 @@ def compute_analytics(rows: list):
         for p in products[:4]
     ]
 
-    # Category Revenue
-    cat_map = {}
-    for row in rows:
-        cat = row['category']
-        cat_map[cat] = cat_map.get(cat, 0.0) + row['totalRevenue']
-
     category_revenue = [
         {
             'name': cat,
@@ -225,50 +259,21 @@ def compute_analytics(rows: list):
     winning_count = sum(1 for p in product_stats if p['status'] == 'winning')
     declining_count = sum(1 for p in product_stats if p['status'] == 'declining')
 
-    # Sentiment
-    positive_count = sum(1 for r in rows if r['rating'] >= 4)
-    neutral_count = sum(1 for r in rows if r['rating'] == 3)
-    negative_count = sum(1 for r in rows if r['rating'] <= 2)
-    tot = len(rows) or 1
-
     sentiment_breakdown = {
-        'positive': round((positive_count / tot) * 100),
-        'neutral': round((neutral_count / tot) * 100),
-        'negative': round((negative_count / tot) * 100)
+        'positive': round((positive_count / total_orders) * 100),
+        'neutral': round((neutral_count / total_orders) * 100),
+        'negative': round((negative_count / total_orders) * 100)
     }
-
-    cat_rating_map = {}
-    for row in rows:
-        cat = row['category']
-        if cat not in cat_rating_map:
-            cat_rating_map[cat] = {'total': 0, 'count': 0}
-        cat_rating_map[cat]['total'] += row['rating']
-        cat_rating_map[cat]['count'] += 1
 
     rating_by_category = sorted([
         {
             'name': cat,
-            'score': round((data['total'] / data['count']) * 20) if data['count'] > 0 else 0,
-            'count': data['count']
+            'score': round((data[0] / data[1]) * 20) if data[1] > 0 else 0,
+            'count': data[1]
         }
         for cat, data in cat_rating_map.items()
     ], key=lambda x: x['score'], reverse=True)
 
-    review_rows = [r for r in rows if r['review'] and len(r['review']) > 10]
-    review_rows.sort(key=lambda x: x['date'], reverse=True)
-    recent_reviews = [
-        {
-            'text': r['review'][:120] + '…' if len(r['review']) > 120 else r['review'],
-            'rating': r['rating'],
-            'productName': r['productName'],
-            'category': r['category'],
-            'date': r['date'],
-            'sentiment': 'positive' if r['rating'] >= 4 else ('neutral' if r['rating'] == 3 else 'negative')
-        }
-        for r in review_rows[:6]
-    ]
-
-    monthly_trend = revenue_by_month
     last_months = revenue_by_month[-2:]
     revenue_growth_rate = 0.18
     if len(last_months) == 2 and last_months[0]['revenue'] > 0:
@@ -279,18 +284,15 @@ def compute_analytics(rows: list):
     last_orders = revenue_by_month[-1]['orders'] if revenue_by_month else total_orders
     predicted_orders = round(last_orders * (1 + abs(revenue_growth_rate)))
 
-    revenue_growth_pct = f"+{int(abs(revenue_growth_rate) * 100)}%"
-    orders_growth_pct = f"+{int(abs(revenue_growth_rate) * 100)}%"
-
-    return {
-        'rows': rows,
+    analytics = {
+        'rows': sample_rows,
         'totalRevenue': total_revenue,
         'totalOrders': total_orders,
         'avgOrderValue': avg_order_value,
         'avgRating': avg_rating,
         'revenueByMonth': revenue_by_month,
         'topProducts': top_products,
-        'productStats': product_stats,
+        'productStats': product_stats[:60],
         'categoryRevenue': category_revenue,
         'bestSeller': best_seller,
         'totalSKUs': len(products),
@@ -298,12 +300,14 @@ def compute_analytics(rows: list):
         'decliningCount': declining_count,
         'sentimentBreakdown': sentiment_breakdown,
         'ratingByCategory': rating_by_category,
-        'recentReviews': recent_reviews,
-        'monthlyTrend': monthly_trend,
+        'recentReviews': review_rows,
+        'monthlyTrend': revenue_by_month,
         'predictedRevenue': predicted_revenue,
         'predictedOrders': predicted_orders,
-        'revenueGrowthPct': revenue_growth_pct,
-        'ordersGrowthPct': orders_growth_pct,
-        'dateRange': date_range,
+        'revenueGrowthPct': f"+{int(abs(revenue_growth_rate) * 100)}%",
+        'ordersGrowthPct': f"+{int(abs(revenue_growth_rate) * 100)}%",
+        'dateRange': {'from': earliest_date if earliest_date != "9999-99-99" else '', 'to': latest_date if latest_date != "0000-00-00" else ''},
         'categories': categories,
     }
+
+    return True, "", analytics, total_orders

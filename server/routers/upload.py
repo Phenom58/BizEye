@@ -1,10 +1,9 @@
 import os
 import re
-from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
-from sqlalchemy.orm import Session
-from database import get_db
+from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, BackgroundTasks
+from database import SessionLocal
 import models
-from utils.csv_parser import validate_csv_headers, parse_csv, compute_analytics
+from utils.csv_parser import parse_and_compute_analytics_fast
 
 router = APIRouter(prefix="/api/upload", tags=["upload"])
 
@@ -12,21 +11,37 @@ MAX_FILE_SIZE = 50 * 1024 * 1024  # 50 MB limit
 
 
 def sanitize_filename(name: str) -> str:
-    """Sanitize uploaded file name against directory traversal and null byte injection."""
     base = os.path.basename(name.replace("\\", "/"))
-    # Keep only safe alphanumeric, dash, underscore, and dot characters
     safe_name = re.sub(r'[^a-zA-Z0-9_\-\. ]', '_', base)
     return safe_name[:120]
 
 
+def save_dataset_background(filename: str, analytics: dict):
+    db = SessionLocal()
+    try:
+        dataset_record = models.Dataset(
+            filename=filename,
+            analytics_data=analytics
+        )
+        db.add(dataset_record)
+        db.commit()
+    except Exception as e:
+        print(f"DB Notice: Background dataset persistence notice: {e}")
+    finally:
+        db.close()
+
+
 @router.post("")
-async def upload_csv(file: UploadFile = File(...), db: Session = Depends(get_db)):
+async def upload_csv(
+    background_tasks: BackgroundTasks,
+    file: UploadFile = File(...)
+):
     if not file.filename or not file.filename.lower().endswith('.csv'):
         raise HTTPException(status_code=400, detail="Only .csv files are supported.")
 
     safe_name = sanitize_filename(file.filename)
 
-    # Read up to max file size to prevent memory exhaustion
+    # Read bytes efficiently
     content_bytes = await file.read(MAX_FILE_SIZE + 1024)
     if len(content_bytes) > MAX_FILE_SIZE:
         raise HTTPException(status_code=400, detail="File too large. Maximum allowed size is 50MB.")
@@ -36,38 +51,18 @@ async def upload_csv(file: UploadFile = File(...), db: Session = Depends(get_db)
     except UnicodeDecodeError:
         content_str = content_bytes.decode('latin-1', errors='ignore')
 
-    validation = validate_csv_headers(content_str)
-    if not validation['valid']:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Missing required columns: {', '.join(validation['missing'])}"
-        )
+    # Instantaneous streaming validation and KPI calculation
+    success, err_msg, analytics, row_count = parse_and_compute_analytics_fast(content_str)
+    if not success:
+        raise HTTPException(status_code=400, detail=err_msg)
 
-    rows = parse_csv(content_str)
-    if not rows:
-        raise HTTPException(status_code=400, detail="No valid data rows found in CSV file.")
-
-    analytics = compute_analytics(rows)
-
-    # Persist dataset record
-    dataset_id = None
-    try:
-        dataset_record = models.Dataset(
-            filename=safe_name,
-            analytics_data=analytics
-        )
-        db.add(dataset_record)
-        db.commit()
-        db.refresh(dataset_record)
-        dataset_id = dataset_record.id
-    except Exception as e:
-        print(f"DB Notice: Could not persist dataset record: {e}")
+    # Non-blocking background persistence
+    background_tasks.add_task(save_dataset_background, safe_name, analytics)
 
     return {
         "success": True,
-        "message": "Dataset processed and analyzed successfully",
-        "datasetId": dataset_id,
+        "message": "Dataset processed and analyzed in real time",
         "filename": safe_name,
-        "rowCount": len(rows),
+        "rowCount": row_count,
         "data": analytics
     }

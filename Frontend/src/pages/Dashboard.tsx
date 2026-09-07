@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import {
   Eye, LayoutDashboard, BarChart3, MessageSquareHeart, TrendingUp,
   Upload, LogOut, Search, Bell, Sparkles, User, Settings,
-  AlertTriangle, Info, Moon, Sun, Home, ChevronDown, Bot, Check
+  AlertTriangle, Info, Moon, Sun, Home, ChevronDown, Bot, Check, Loader2
 } from 'lucide-react';
 import Overview from '@/components/dashboard/Overview';
 import Performance from '@/components/dashboard/Performance';
@@ -86,6 +86,17 @@ export default function Dashboard({ userInfo, onUpdateUserInfo, onLogout, onGoHo
   const [notifications, setNotifications] = useState<NotificationItem[]>([]); // Empty by default
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
   const [datasetFilename, setDatasetFilename] = useState<string>('');
+  const [uploadState, setUploadState] = useState<{
+    isUploading: boolean;
+    fileName: string;
+    progress: number;
+    error: string | null;
+  }>({
+    isUploading: false,
+    fileName: '',
+    progress: 0,
+    error: null,
+  });
   const [searchValue, setSearchValue] = useState('');
   const [darkMode, setDarkMode] = useState<boolean>(() => {
     return localStorage.getItem('theme') === 'dark';
@@ -128,6 +139,41 @@ export default function Dashboard({ userInfo, onUpdateUserInfo, onLogout, onGoHo
   const handleMarkSingleRead = (id: string) => setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, unread: false } : n)));
   const handleClearNotifications = () => setNotifications([]);
 
+  const handleStartUpload = async (file: File) => {
+    if (!file.name.toLowerCase().endsWith('.csv')) {
+      setUploadState({ isUploading: false, fileName: file.name, progress: 0, error: 'Please upload a valid .csv file.' });
+      return;
+    }
+    if (file.size > 50 * 1024 * 1024) {
+      setUploadState({ isUploading: false, fileName: file.name, progress: 0, error: 'File too large. Maximum size is 50MB.' });
+      return;
+    }
+
+    setUploadState({ isUploading: true, fileName: file.name, progress: 45, error: null });
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const resData = await response.json();
+
+      if (!response.ok || !resData.success) {
+        setUploadState({ isUploading: false, fileName: file.name, progress: 0, error: resData.detail || 'Failed to process dataset on server.' });
+        return;
+      }
+
+      setUploadState({ isUploading: false, fileName: file.name, progress: 100, error: null });
+      handleDatasetLoaded(resData.data, file.name);
+    } catch (err) {
+      setUploadState({ isUploading: false, fileName: file.name, progress: 0, error: 'Unable to connect to backend server. Make sure FastAPI is running on port 8000.' });
+    }
+  };
+
   const handleDatasetLoaded = (d: DashboardData, fname?: string) => {
     const filename = fname || 'sales_dataset.csv';
     setDashboardData(d);
@@ -148,6 +194,7 @@ export default function Dashboard({ userInfo, onUpdateUserInfo, onLogout, onGoHo
     const filename = datasetFilename || 'Dataset';
     setDashboardData(null);
     setDatasetFilename('');
+    setUploadState({ isUploading: false, fileName: '', progress: 0, error: null });
     const newNotif: NotificationItem = {
       id: Date.now().toString(),
       title: 'Dataset Removed',
@@ -426,6 +473,14 @@ export default function Dashboard({ userInfo, onUpdateUserInfo, onLogout, onGoHo
 
           {/* Right Side Actions */}
           <div className="flex items-center gap-2">
+            {/* Background Upload Status Indicator */}
+            {uploadState.isUploading && (
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-500/30 text-blue-700 dark:text-sky-300 text-xs font-semibold shadow-xs animate-pulse">
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-600 dark:text-sky-400 shrink-0" />
+                <span className="truncate max-w-[120px] sm:max-w-[180px]">Uploading {uploadState.fileName}...</span>
+              </div>
+            )}
+
             {/* Country Flag Selector Dropdown (Icon Only - Default India 🇮🇳) */}
             <div className="relative" ref={countryDropdownRef}>
               <button
@@ -624,6 +679,8 @@ export default function Dashboard({ userInfo, onUpdateUserInfo, onLogout, onGoHo
           {section === 'predictive'  && <Predictive   onNavigate={navigate} data={dashboardData} />}
           {section === 'upload' && (
             <DataUpload
+              uploadState={uploadState}
+              onStartUpload={handleStartUpload}
               onDataLoaded={handleDatasetLoaded}
               onDataCleared={handleDatasetRemoved}
               currentData={dashboardData}
