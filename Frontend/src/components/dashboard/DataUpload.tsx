@@ -1,14 +1,15 @@
 import { useState, useRef } from 'react';
-import { Upload, FileText, CheckCircle, AlertCircle, X, ArrowRight, Layers, Table } from 'lucide-react';
+import { Upload, FileText, CheckCircle, AlertCircle, X, ArrowRight, Table, Trash2 } from 'lucide-react';
 import { readFileAsText, parseCSV, validateCSVHeaders, computeAnalytics } from '@/utils/csvParser';
 import type { DashboardData } from '@/utils/csvParser';
 
 interface Props {
-  onDataLoaded: (data: DashboardData) => void;
+  onDataLoaded: (data: DashboardData, fileName?: string) => void;
+  onDataCleared?: () => void;
   currentData: DashboardData | null;
 }
 
-export default function DataUpload({ onDataLoaded, currentData }: Props) {
+export default function DataUpload({ onDataLoaded, onDataCleared, currentData }: Props) {
   const [dragOver, setDragOver] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -50,7 +51,7 @@ export default function DataUpload({ onDataLoaded, currentData }: Props) {
         return;
       }
 
-      onDataLoaded(resData.data);
+      onDataLoaded(resData.data, file.name);
       setSuccess(true);
     } catch (err) {
       try {
@@ -68,7 +69,7 @@ export default function DataUpload({ onDataLoaded, currentData }: Props) {
           return;
         }
         const data = computeAnalytics(rows);
-        onDataLoaded(data);
+        onDataLoaded(data, file.name);
         setSuccess(true);
       } catch (fallbackErr) {
         setError('Failed to parse the file. Please check the format.');
@@ -90,10 +91,17 @@ export default function DataUpload({ onDataLoaded, currentData }: Props) {
     if (file) handleFile(file);
   };
 
+  const handleClear = () => {
+    setSuccess(false);
+    setFileName('');
+    if (fileRef.current) fileRef.current.value = '';
+    if (onDataCleared) onDataCleared();
+  };
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div>
-        <h2 className="text-2xl font-extrabold text-gray-900">Upload Sales CSV Dataset</h2>
+        <h2 className="text-2xl font-extrabold text-gray-900 dark:text-white">Upload Sales CSV Dataset</h2>
         <p className="text-xs text-gray-400 mt-0.5">
           Import your store transactions to populate real-time dashboards and generate AI predictions.
         </p>
@@ -106,12 +114,12 @@ export default function DataUpload({ onDataLoaded, currentData }: Props) {
         onDrop={handleDrop}
         className={`relative border-2 border-dashed rounded-3xl p-12 text-center transition-all duration-300 cursor-pointer ${
           dragOver
-            ? 'border-indigo-500 bg-indigo-50/50 scale-[1.01]'
+            ? 'border-blue-500 bg-blue-50/50 dark:bg-blue-950/30 scale-[1.01]'
             : error
-            ? 'border-rose-300 bg-rose-50/20'
+            ? 'border-rose-300 dark:border-rose-500/30 bg-rose-50/20 dark:bg-rose-950/20'
             : success
-            ? 'border-emerald-300 bg-emerald-50/20'
-            : 'border-gray-200/90 bg-white hover:border-indigo-400 hover:bg-indigo-50/20 shadow-xs'
+            ? 'border-emerald-300 dark:border-emerald-500/30 bg-emerald-50/20 dark:bg-emerald-950/20'
+            : 'border-gray-200/90 dark:border-white/[0.08] bg-white dark:bg-crystal-900 hover:border-blue-400 dark:hover:border-blue-500/50 hover:bg-blue-50/20 dark:hover:bg-crystal-850 shadow-xs'
         }`}
         onClick={() => fileRef.current?.click()}
       >
@@ -119,50 +127,50 @@ export default function DataUpload({ onDataLoaded, currentData }: Props) {
 
         {loading ? (
           <div className="flex flex-col items-center gap-4">
-            <div className="w-12 h-12 border-3 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+            <div className="w-12 h-12 border-3 border-blue-600 border-t-transparent rounded-full animate-spin" />
             <div>
-              <p className="text-sm font-bold text-gray-800">Processing {fileName}…</p>
-              <p className="text-xs text-gray-400 mt-1">Parsing rows and computing analytics</p>
+              <p className="text-sm font-bold text-gray-800 dark:text-gray-200">Processing {fileName}…</p>
+              <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Parsing rows and computing analytics</p>
             </div>
           </div>
         ) : success ? (
           <div className="flex flex-col items-center gap-4">
-            <div className="w-14 h-14 bg-emerald-100/70 text-emerald-600 rounded-2xl flex items-center justify-center shadow-xs">
+            <div className="w-14 h-14 bg-emerald-100/70 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 rounded-2xl flex items-center justify-center shadow-xs">
               <CheckCircle className="w-7 h-7" />
             </div>
             <div>
-              <p className="text-sm font-bold text-emerald-700">Dataset Loaded Successfully!</p>
-              <p className="text-xs text-gray-500 mt-1">{fileName} • Click to upload a different CSV</p>
+              <p className="text-sm font-bold text-emerald-700 dark:text-emerald-400">Dataset Loaded Successfully!</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{fileName} • Click to upload a different CSV</p>
             </div>
           </div>
         ) : error ? (
           <div className="flex flex-col items-center gap-4">
-            <div className="w-14 h-14 bg-rose-100/70 text-rose-600 rounded-2xl flex items-center justify-center shadow-xs">
+            <div className="w-14 h-14 bg-rose-100/70 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 rounded-2xl flex items-center justify-center shadow-xs">
               <AlertCircle className="w-7 h-7" />
             </div>
             <div>
-              <p className="text-sm font-bold text-rose-700">Upload Error</p>
-              <p className="text-xs text-rose-600 mt-1">{error}</p>
-              <p className="text-xs text-gray-400 mt-2">Click to try again</p>
+              <p className="text-sm font-bold text-rose-700 dark:text-rose-400">Upload Error</p>
+              <p className="text-xs text-rose-600 dark:text-rose-400 mt-1">{error}</p>
+              <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">Click to try again</p>
             </div>
           </div>
         ) : (
           <div className="flex flex-col items-center gap-4">
-            <div className="w-14 h-14 bg-indigo-50 text-indigo-600 rounded-2xl border border-indigo-100 flex items-center justify-center shadow-xs">
+            <div className="w-14 h-14 bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-sky-400 rounded-2xl border border-blue-100 dark:border-blue-500/20 flex items-center justify-center shadow-xs">
               <Upload className="w-6 h-6" />
             </div>
             <div>
-              <p className="text-sm font-bold text-gray-900">Drag & drop your sales CSV dataset here</p>
-              <p className="text-xs text-gray-400 mt-1">or click to browse files · Supports files up to 50MB</p>
+              <p className="text-sm font-bold text-gray-900 dark:text-white">Drag & drop your sales CSV dataset here</p>
+              <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">or click to browse files · Supports files up to 50MB</p>
             </div>
           </div>
         )}
       </div>
 
       {/* CSV Column Format Reference */}
-      <div className="bg-white border border-gray-100/90 rounded-3xl p-6 shadow-xs">
-        <h3 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-2">
-          <Table className="w-4 h-4 text-indigo-600" /> Recognized CSV Header Columns
+      <div className="bg-white dark:bg-crystal-900 border border-gray-100/90 dark:border-white/[0.08] rounded-3xl p-6 shadow-xs">
+        <h3 className="text-sm font-bold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
+          <Table className="w-4 h-4 text-blue-600 dark:text-sky-400" /> Recognized CSV Header Columns
         </h3>
         <div className="flex flex-wrap gap-2">
           {[
@@ -170,7 +178,7 @@ export default function DataUpload({ onDataLoaded, currentData }: Props) {
             'Product Name', 'Units Sold', 'Unit Price', 'Total Revenue',
             'Payment Method', 'Rating', 'Reviews',
           ].map((col) => (
-            <span key={col} className="text-xs bg-indigo-50/70 text-indigo-700 border border-indigo-100 px-3 py-1.5 rounded-xl font-mono font-medium">
+            <span key={col} className="text-xs bg-blue-50/70 dark:bg-blue-950/30 text-blue-700 dark:text-sky-300 border border-blue-100 dark:border-blue-500/20 px-3 py-1.5 rounded-xl font-mono font-medium">
               {col}
             </span>
           ))}
@@ -179,23 +187,23 @@ export default function DataUpload({ onDataLoaded, currentData }: Props) {
 
       {/* Active Loaded Summary */}
       {currentData && (
-        <div className="bg-gradient-to-br from-indigo-600 to-blue-700 rounded-3xl p-6 text-white shadow-lg shadow-indigo-500/20 space-y-4">
+        <div className="bg-gradient-to-br from-blue-600 via-blue-700 to-sky-600 rounded-3xl p-6 text-white shadow-lg shadow-blue-500/20 space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-white/15 backdrop-blur-xs flex items-center justify-center">
+              <div className="w-10 h-10 rounded-2xl bg-white/15 backdrop-blur-xs flex items-center justify-center border border-white/20">
                 <FileText className="w-5 h-5 text-white" />
               </div>
               <div>
                 <p className="text-sm font-bold text-white">Active Dataset Overview</p>
-                <p className="text-xs text-indigo-200">{fileName || 'retail_sales_dataset.csv'}</p>
+                <p className="text-xs text-blue-100">{fileName || 'Active Dataset'}</p>
               </div>
             </div>
             <button
-              onClick={() => { setSuccess(false); setFileName(''); }}
-              className="p-2 rounded-xl bg-white/10 hover:bg-white/20 transition-colors text-white"
-              title="Reset"
+              onClick={handleClear}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/10 hover:bg-rose-500/80 transition-colors text-white text-xs font-semibold cursor-pointer"
+              title="Remove Dataset"
             >
-              <X className="w-4 h-4" />
+              <Trash2 className="w-3.5 h-3.5" /> Remove Dataset
             </button>
           </div>
 
@@ -206,14 +214,14 @@ export default function DataUpload({ onDataLoaded, currentData }: Props) {
               { label: 'Categories', val: currentData.categories.length.toString() },
               { label: 'Unique SKUs', val: currentData.totalSKUs.toString() },
             ].map((st) => (
-              <div key={st.label} className="bg-white/10 backdrop-blur-xs rounded-2xl p-3.5">
-                <p className="text-[10px] text-indigo-200 uppercase font-bold tracking-wider">{st.label}</p>
+              <div key={st.label} className="bg-white/10 backdrop-blur-xs rounded-2xl p-3.5 border border-white/10">
+                <p className="text-[10px] text-blue-100 uppercase font-bold tracking-wider">{st.label}</p>
                 <p className="text-sm font-extrabold text-white mt-0.5">{st.val}</p>
               </div>
             ))}
           </div>
 
-          <p className="text-xs text-indigo-100 flex items-center gap-1.5 pt-2">
+          <p className="text-xs text-blue-100 flex items-center gap-1.5 pt-2">
             <ArrowRight className="w-3.5 h-3.5 text-yellow-300" />
             Switch tabs to Overview, Performance, Sentiment, or Predictive AI to explore interactive charts.
           </p>
@@ -222,3 +230,4 @@ export default function DataUpload({ onDataLoaded, currentData }: Props) {
     </div>
   );
 }
+

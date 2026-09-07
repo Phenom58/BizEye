@@ -60,8 +60,17 @@ datasets/
 *.sqlite
 *.db
 
-# Temporary & Scratch folders
+# Temporary, Cache & Scratch folders
 ignoreFolder/
 scratch/
 .tmp/
 tmp/
+.cache/
+.eslintcache
+.turbo/
+.parcel-cache/
+.gemini/
+.claude/
+.cursor/
+*.bak
+*.orig
