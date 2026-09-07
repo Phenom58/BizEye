@@ -556,12 +556,13 @@ export default function Dashboard({ userInfo, onUpdateUserInfo, onLogout, onGoHo
             <div className="relative" ref={profileDropdownRef}>
               <button
                 onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
-                className="flex items-center gap-1.5 p-1 rounded-full hover:bg-gray-100 dark:hover:bg-crystal-800 transition-all cursor-pointer active:scale-95 border border-gray-200/80 dark:border-white/[0.1] bg-white dark:bg-crystal-800"
+                className="flex items-center gap-2 pl-1 pr-2.5 py-1 rounded-full hover:bg-gray-100 dark:hover:bg-crystal-800 transition-all cursor-pointer active:scale-95 border border-gray-200/80 dark:border-white/[0.1] bg-white dark:bg-crystal-800 shadow-2xs group"
+                title="Account menu"
               >
-                <div className="w-8.5 h-8.5 rounded-full bg-gradient-to-tr from-blue-600 to-sky-400 text-white font-bold text-xs flex items-center justify-center shadow-md shadow-blue-500/25 ring-2 ring-blue-500/20">
+                <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-600 via-blue-700 to-sky-400 text-white font-bold text-xs flex items-center justify-center shadow-md shadow-blue-500/25 ring-2 ring-blue-500/20 shrink-0">
                   {initials}
                 </div>
-                <ChevronDown className="w-3.5 h-3.5 text-gray-500 pr-1" />
+                <ChevronDown className="w-3.5 h-3.5 text-gray-500 dark:text-gray-400 group-hover:text-gray-800 dark:group-hover:text-white transition-colors" />
               </button>
 
               {/* Profile Dropdown Menu */}

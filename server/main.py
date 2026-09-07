@@ -3,7 +3,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from database import engine, Base
 import models
-from routers import auth, upload
+from routers import auth, upload, chat
 
 # Automatically initialize database schema
 Base.metadata.create_all(bind=engine)
@@ -45,6 +45,7 @@ async def add_security_headers(request: Request, call_next):
 # Register API routers
 app.include_router(auth.router)
 app.include_router(upload.router)
+app.include_router(chat.router)
 
 
 @app.get("/api/health")

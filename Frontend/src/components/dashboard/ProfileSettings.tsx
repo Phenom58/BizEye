@@ -44,13 +44,27 @@ export default function ProfileSettings({ userInfo, initialTab = 'profile', onUp
   const [saving, setSaving] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const [apiKey, setApiKey] = useState('bizeye_live_sec_••••••••••••');
   const [copiedKey, setCopiedKey] = useState(false);
+  const [regeneratingKey, setRegeneratingKey] = useState(false);
 
   useEffect(() => {
     setName(userInfo.username || '');
     setEmail(userInfo.email || '');
     if (userInfo.role) setRole(userInfo.role);
     if (userInfo.company) setCompany(userInfo.company);
+
+    const token = localStorage.getItem('auth_token');
+    if (token) {
+      fetch('/api/auth/api-key', {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+        .then((r) => r.json())
+        .then((d) => {
+          if (d.apiKey) setApiKey(d.apiKey);
+        })
+        .catch(() => {});
+    }
   }, [userInfo]);
 
   const handleSaveProfile = async (e: React.FormEvent) => {
@@ -221,9 +235,31 @@ export default function ProfileSettings({ userInfo, initialTab = 'profile', onUp
   };
 
   const handleCopyApiKey = () => {
-    navigator.clipboard.writeText('bizeye_live_sec_99348102938471209348');
+    navigator.clipboard.writeText(apiKey);
     setCopiedKey(true);
     setTimeout(() => setCopiedKey(false), 2000);
+  };
+
+  const handleRegenerateApiKey = async () => {
+    const token = localStorage.getItem('auth_token');
+    if (!token) return;
+    setRegeneratingKey(true);
+    try {
+      const res = await fetch('/api/auth/api-key/regenerate', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (data.apiKey) {
+        setApiKey(data.apiKey);
+        setSavedSuccess(true);
+        setTimeout(() => setSavedSuccess(false), 3000);
+      }
+    } catch (e) {
+      // ignore
+    } finally {
+      setRegeneratingKey(false);
+    }
   };
 
   return (
@@ -612,14 +648,25 @@ export default function ProfileSettings({ userInfo, initialTab = 'profile', onUp
                   <Key className="w-5 h-5 text-blue-600 dark:text-sky-400" />
                 </div>
 
-                <div className="flex items-center bg-gray-50 dark:bg-crystal-800 border border-gray-200 dark:border-white/[0.08] rounded-2xl px-4 py-3 font-mono text-xs text-gray-700 dark:text-gray-300 justify-between">
-                  <span className="truncate pr-2">bizeye_live_sec_99348102938471209348</span>
-                  <button
-                    onClick={handleCopyApiKey}
-                    className="text-xs bg-blue-600 text-white px-3.5 py-1.5 rounded-xl font-sans font-semibold hover:bg-blue-700 transition-colors shrink-0 cursor-pointer shadow-xs"
-                  >
-                    {copiedKey ? 'Copied!' : 'Copy Key'}
-                  </button>
+                <div className="flex flex-col sm:flex-row sm:items-center bg-gray-50 dark:bg-crystal-800 border border-gray-200 dark:border-white/[0.08] rounded-2xl px-4 py-3 font-mono text-xs text-gray-700 dark:text-gray-300 justify-between gap-3">
+                  <span className="truncate pr-2 font-mono font-medium">{apiKey}</span>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      type="button"
+                      onClick={handleRegenerateApiKey}
+                      disabled={regeneratingKey}
+                      className="text-xs bg-gray-200 hover:bg-gray-300 dark:bg-crystal-700 dark:hover:bg-crystal-600 text-gray-700 dark:text-gray-200 px-3 py-1.5 rounded-xl font-sans font-semibold transition-colors cursor-pointer shadow-xs disabled:opacity-50"
+                    >
+                      {regeneratingKey ? 'Regenerating...' : 'Regenerate'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleCopyApiKey}
+                      className="text-xs bg-blue-600 text-white px-3.5 py-1.5 rounded-xl font-sans font-semibold hover:bg-blue-700 transition-colors cursor-pointer shadow-xs"
+                    >
+                      {copiedKey ? 'Copied!' : 'Copy Key'}
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
