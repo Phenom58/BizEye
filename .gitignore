@@ -77,8 +77,13 @@ server/node_modules/
 Frontend/dist/
 Frontend/.vite/
 dist/
+dist-ssr/
 .vite/
-.tsbuildinfo
+*.tsbuildinfo
+
+# Testing & Coverage
+coverage/
+.nyc_output/
 
 # Logs & Debug Reports
 logs/
@@ -98,6 +103,8 @@ datasets/
 .vscode/
 !.vscode/extensions.json
 .idea/
+*.sw?
+*.swo
 .DS_Store
 .DS_Store?
 ._*
@@ -109,3 +116,4 @@ tmp/
 .tmp/
 scratch/
 ignoreFolder/
+.gemini/

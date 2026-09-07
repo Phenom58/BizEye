@@ -343,11 +343,12 @@ export default function Login({ onLogin, onBack }: Props) {
               </div>
 
               {/* Divider */}
-              <div className="relative flex items-center justify-center mb-6">
-                <div className="border-t border-white/[0.08] w-full" />
-                <span className="bg-[#0a0a0a] px-3 text-[10px] uppercase tracking-widest text-gray-500 font-mono shrink-0">
+              <div className="flex items-center gap-3 my-6">
+                <div className="flex-1 border-t border-white/[0.08]" />
+                <span className="text-[10px] uppercase tracking-widest text-gray-500 font-mono shrink-0">
                   or continue with email
                 </span>
+                <div className="flex-1 border-t border-white/[0.08]" />
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-5">
