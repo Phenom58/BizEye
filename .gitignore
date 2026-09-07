@@ -2,10 +2,11 @@
 # STRICT SECURITY & SECRETS PROTECTION
 # ==========================================
 
-# Environment & API Key Secrets
+# Environment Files & API Secrets
 .env
 .env.*
 *.env
+*.env.*
 .env.local
 .env.development.local
 .env.test.local
@@ -16,12 +17,14 @@
 *.pem
 *.key
 *.crt
+*.cert
 *.pfx
 *.p12
 *.asc
 id_rsa
 id_rsa.pub
 id_ed25519
+id_ed25519.pub
 
 # Cloud Credentials & Service Accounts
 service-account*.json
@@ -32,15 +35,17 @@ GoogleService-Info.plist
 aws_credentials
 .aws/
 .gcp/
+.azure/
 
-# Databases & Local Data Stores
+# Databases, Storage & Local Data
 *.db
 *.sqlite
 *.sqlite3
 *.rdb
 uploads/
+storage/
 
-# Python & FastAPI Backend Artifacts
+# Python & Backend Artifacts
 __pycache__/
 *.py[cod]
 *$py.class
@@ -69,15 +74,16 @@ wheels/
 .coverage
 htmlcov/
 .mypy_cache/
+.ruff_cache/
 
 # Node.js & Frontend Build Outputs
 node_modules/
-Frontend/node_modules/
-server/node_modules/
+*/node_modules/
 Frontend/dist/
 Frontend/.vite/
 dist/
 dist-ssr/
+build/
 .vite/
 *.tsbuildinfo
 
@@ -91,6 +97,7 @@ logs/
 npm-debug.log*
 yarn-debug.log*
 pnpm-debug.log*
+lerna-debug.log*
 report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 
 # Datasets & Proprietary Data Files
@@ -99,29 +106,36 @@ datasets/
 *.xlsx
 *.parquet
 
-# IDE & OS Metadata
+# IDE, Editor & OS Metadata
 .vscode/
 !.vscode/extensions.json
 .idea/
 *.sw?
 *.swo
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
 .DS_Store
 .DS_Store?
 ._*
+.Spotlight-V100
+.Trashes
 Thumbs.db
 ehthumbs.db
 
-# Temporary, Cache & Scratch Files
-tmp/
-.tmp/
+# AI Agents, Tools, Cache & Scratch Files
+.gemini/
+.antigravity/
+.claude/
+.cursor/
 .cache/
 .eslintcache
 .turbo/
 .parcel-cache/
 scratch/
 ignoreFolder/
-.gemini/
-.claude/
-.cursor/
+tmp/
+.tmp/
 *.bak
 *.orig

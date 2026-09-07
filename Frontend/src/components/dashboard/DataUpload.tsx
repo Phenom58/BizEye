@@ -1,6 +1,5 @@
 import { useState, useRef } from 'react';
 import { Upload, FileText, CheckCircle, AlertCircle, X, ArrowRight, Table, Trash2 } from 'lucide-react';
-import { readFileAsText, parseCSV, validateCSVHeaders, computeAnalytics } from '@/utils/csvParser';
 import type { DashboardData } from '@/utils/csvParser';
 
 interface Props {
@@ -22,7 +21,7 @@ export default function DataUpload({ onDataLoaded, onDataCleared, currentData }:
     setSuccess(false);
 
     if (!file.name.endsWith('.csv')) {
-      setError('Please upload a .csv file.');
+      setError('Please upload a valid .csv file.');
       return;
     }
 
@@ -46,7 +45,7 @@ export default function DataUpload({ onDataLoaded, onDataCleared, currentData }:
       const resData = await response.json();
 
       if (!response.ok || !resData.success) {
-        setError(resData.error || 'Failed to process file on server.');
+        setError(resData.detail || resData.error || 'Failed to process file on backend server.');
         setLoading(false);
         return;
       }
@@ -54,26 +53,7 @@ export default function DataUpload({ onDataLoaded, onDataCleared, currentData }:
       onDataLoaded(resData.data, file.name);
       setSuccess(true);
     } catch (err) {
-      try {
-        const text = await readFileAsText(file);
-        const validation = validateCSVHeaders(text);
-        if (!validation.valid) {
-          setError(`Missing columns: ${validation.missing.join(', ')}`);
-          setLoading(false);
-          return;
-        }
-        const rows = parseCSV(text);
-        if (rows.length === 0) {
-          setError('No data rows found in the file.');
-          setLoading(false);
-          return;
-        }
-        const data = computeAnalytics(rows);
-        onDataLoaded(data, file.name);
-        setSuccess(true);
-      } catch (fallbackErr) {
-        setError('Failed to parse the file. Please check the format.');
-      }
+      setError('Unable to connect to the backend server. Please make sure the FastAPI server is running.');
     } finally {
       setLoading(false);
     }

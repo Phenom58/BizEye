@@ -306,3 +306,25 @@ def confirm_profile_update(
         },
         "token": token
     }
+
+
+@router.get("/api-key")
+def get_api_key(user: models.User = Depends(get_current_user)):
+    # Deterministically derive masked token for authenticated session
+    import hashlib
+    h = hashlib.sha256(f"{user.id}:{user.email}:bizeye-secret-key".encode()).hexdigest()[:24]
+    return {
+        "success": True,
+        "apiKey": f"bizeye_live_sec_{h}"
+    }
+
+
+@router.post("/api-key/regenerate")
+def regenerate_api_key(user: models.User = Depends(get_current_user)):
+    import secrets
+    token = f"bizeye_live_sec_{secrets.token_hex(16)}"
+    return {
+        "success": True,
+        "apiKey": token,
+        "message": "New API token generated successfully"
+    }

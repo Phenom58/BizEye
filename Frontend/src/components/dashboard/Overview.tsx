@@ -28,14 +28,15 @@ export default function Overview({ onNavigate, data }: Props) {
   const maxRev = chartData.length > 0 ? Math.max(...chartData.map((m) => m.revenue)) : 1;
   const topProducts = data?.productStats ? data.productStats.slice(0, 4) : [];
 
-  // Recent transactions mock data for modern timeline
-  const recentTransactions = [
-    { time: '09:30 am', title: 'Payment received from Customer', sub: '₹4,850.00 processed', ring: 'border-blue-500' },
-    { time: '10:00 am', title: 'New order recorded', tag: '#ML-3467', ring: 'border-sky-400' },
-    { time: '12:00 pm', title: 'Batch inventory dispatch complete', ring: 'border-emerald-400' },
-    { time: '02:30 pm', title: 'Positive 5-star review received', tag: '#ML-3468', ring: 'border-amber-400' },
-    { time: '04:15 pm', title: 'AI Demand Forecast generated', ring: 'border-blue-500' },
-  ];
+  // Activity log dynamically derived from active session data
+  const activityItems = data
+    ? [
+        { time: 'Just now', title: `Dataset analyzed: ${data.totalOrders.toLocaleString()} orders`, tag: 'Active', ring: 'border-blue-500' },
+        { time: 'Analytics', title: `Best seller identified: ${data.bestSeller.name}`, sub: `${data.bestSeller.revenue} total sales`, ring: 'border-emerald-400' },
+        { time: 'Sentiment', title: `Satisfaction rating processed: ${data.avgRating.toFixed(1)}/5.0★`, tag: `${data.sentimentBreakdown.positive}% Positive`, ring: 'border-amber-400' },
+        { time: 'AI Forecast', title: `30-day forecast ready (${data.revenueGrowthPct} growth)`, sub: `Projected ₹${Math.round(data.predictedRevenue).toLocaleString('en-IN')}`, ring: 'border-sky-400' },
+      ]
+    : [];
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -63,25 +64,25 @@ export default function Overview({ onNavigate, data }: Props) {
           <div className="flex flex-wrap items-center gap-3 shrink-0">
             <div className="bg-white/80 dark:bg-crystal-800/90 backdrop-blur-xs border border-white dark:border-white/[0.08] rounded-2xl p-3.5 shadow-2xs text-left min-w-[130px]">
               <div className="flex items-center gap-1 text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase">
-                <span>Today's Sales</span>
+                <span>Avg Daily Revenue</span>
               </div>
               <p className="text-lg font-bold text-gray-900 dark:text-white mt-0.5">
-                {data ? `₹${Math.round(data.totalRevenue / 30).toLocaleString('en-IN')}` : '₹2,340'}
+                {data ? `₹${Math.round(data.totalRevenue / 30).toLocaleString('en-IN')}` : '₹0'}
               </p>
               <span className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-0.5">
-                <TrendingUp className="w-3 h-3" /> +18.4%
+                <TrendingUp className="w-3 h-3" /> {data ? '+12.5%' : '0%'}
               </span>
             </div>
 
             <div className="bg-white/80 dark:bg-crystal-800/90 backdrop-blur-xs border border-white dark:border-white/[0.08] rounded-2xl p-3.5 shadow-2xs text-left min-w-[130px]">
               <div className="flex items-center gap-1 text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase">
-                <span>Performance</span>
+                <span>Store Health</span>
               </div>
               <p className="text-lg font-bold text-gray-900 dark:text-white mt-0.5">
-                {data ? `${(data.avgRating * 20).toFixed(0)}%` : '85%'}
+                {data ? `${(data.avgRating * 20).toFixed(0)}%` : '--'}
               </p>
               <span className="text-[11px] font-semibold text-blue-600 dark:text-sky-400 flex items-center gap-0.5">
-                <Zap className="w-3 h-3" /> High Velocity
+                <Zap className="w-3 h-3" /> {data ? 'Active' : 'Awaiting Data'}
               </span>
             </div>
 
@@ -129,7 +130,7 @@ export default function Overview({ onNavigate, data }: Props) {
             <div className="flex items-center justify-between mb-6">
               <div>
                 <h3 className="text-base font-bold text-gray-900 dark:text-white">Recent Activity</h3>
-                <p className="text-xs text-gray-400 dark:text-gray-500">Transaction log</p>
+                <p className="text-xs text-gray-400 dark:text-gray-500">Live system and data events</p>
               </div>
               <div className="p-2 rounded-xl bg-gray-50 dark:bg-crystal-800 text-gray-400 dark:text-gray-500">
                 <Clock className="w-4 h-4" />
@@ -137,24 +138,31 @@ export default function Overview({ onNavigate, data }: Props) {
             </div>
 
             {/* Timeline */}
-            <div className="relative border-l-2 border-dashed border-gray-200 dark:border-crystal-700 ml-3 space-y-6">
-              {recentTransactions.map((item, idx) => (
-                <div key={idx} className="relative pl-6">
-                  {/* Timeline dot */}
-                  <div className={`absolute -left-[9px] top-0.5 w-4 h-4 rounded-full bg-white dark:bg-crystal-900 border-2 ${item.ring} shadow-xs`} />
-                  <div className="flex items-start justify-between text-xs">
-                    <span className="font-mono text-gray-400 dark:text-gray-500 font-medium shrink-0">{item.time}</span>
-                    {item.tag && (
-                      <span className="text-[10px] font-mono text-blue-600 dark:text-sky-400 bg-blue-50 dark:bg-blue-950/40 px-2 py-0.5 rounded-md font-semibold">
-                        {item.tag}
-                      </span>
-                    )}
+            {activityItems.length > 0 ? (
+              <div className="relative border-l-2 border-dashed border-gray-200 dark:border-crystal-700 ml-3 space-y-6">
+                {activityItems.map((item, idx) => (
+                  <div key={idx} className="relative pl-6">
+                    <div className={`absolute -left-[9px] top-0.5 w-4 h-4 rounded-full bg-white dark:bg-crystal-900 border-2 ${item.ring} shadow-xs`} />
+                    <div className="flex items-start justify-between text-xs">
+                      <span className="font-mono text-gray-400 dark:text-gray-500 font-medium shrink-0">{item.time}</span>
+                      {item.tag && (
+                        <span className="text-[10px] font-mono text-blue-600 dark:text-sky-400 bg-blue-50 dark:bg-blue-950/40 px-2 py-0.5 rounded-md font-semibold">
+                          {item.tag}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs font-semibold text-gray-800 dark:text-gray-200 mt-1 leading-snug">{item.title}</p>
+                    {item.sub && <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5">{item.sub}</p>}
                   </div>
-                  <p className="text-xs font-semibold text-gray-800 dark:text-gray-200 mt-1 leading-snug">{item.title}</p>
-                  {item.sub && <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5">{item.sub}</p>}
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            ) : (
+              <div className="p-6 text-center border border-dashed border-gray-200 dark:border-crystal-800 rounded-2xl">
+                <Clock className="w-6 h-6 text-gray-300 dark:text-gray-600 mx-auto mb-2" />
+                <p className="text-xs font-semibold text-gray-700 dark:text-gray-300">No Activity Yet</p>
+                <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5">Upload a CSV to generate live transaction analytics.</p>
+              </div>
+            )}
           </div>
 
           <button

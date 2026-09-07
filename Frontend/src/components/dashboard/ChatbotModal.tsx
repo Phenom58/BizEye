@@ -8,6 +8,7 @@ interface Message {
   sender: 'user' | 'assistant';
   text: string;
   time: string;
+  provider?: string;
 }
 
 interface Props {
@@ -29,6 +30,7 @@ export default function ChatbotModal({ isOpen, onClose, data, userInfo, onNaviga
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [activeProvider, setActiveProvider] = useState<string>('BizEye Intelligence Engine');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -47,6 +49,7 @@ export default function ChatbotModal({ isOpen, onClose, data, userInfo, onNaviga
             sender: 'assistant',
             text: welcomeText,
             time: now,
+            provider: 'BizEye Intelligence Engine',
           },
         ]);
       }
@@ -60,61 +63,9 @@ export default function ChatbotModal({ isOpen, onClose, data, userInfo, onNaviga
 
   if (!isOpen) return null;
 
-  const generateAnswer = (query: string): string => {
-    const q = query.toLowerCase();
-
-    if (!data) {
-      if (q.includes('upload') || q.includes('dataset') || q.includes('file')) {
-        return "To upload your data, click the **Upload Data** tab in the sidebar. We support any sales CSV containing columns like Product Name, Revenue, Units Sold, and Customer Ratings.";
-      }
-      return "No dataset is currently loaded in your session. Please upload a sales CSV file first, and I will be able to answer specific questions about your revenue, SKUs, customer sentiment, and demand forecast!";
-    }
-
-    // Revenue / Sales query
-    if (q.includes('revenue') || q.includes('sales') || q.includes('money') || q.includes('earn')) {
-      const peak = data.revenueByMonth.reduce((max, c) => (c.revenue > max.revenue ? c : max), data.revenueByMonth[0] || { month: 'N/A', revenue: 0 });
-      return `💰 **Revenue Summary**:\n• **Total Revenue**: ₹${Math.round(data.totalRevenue).toLocaleString('en-IN')}\n• **Total Orders**: ${data.totalOrders.toLocaleString()}\n• **Average Order Value**: ₹${Math.round(data.avgOrderValue)}\n• **Peak Month**: ${peak.month} (₹${Math.round(peak.revenue).toLocaleString('en-IN')})\n• **Best Seller**: ${data.bestSeller.name} (${data.bestSeller.revenue})`;
-    }
-
-    // Forecast / Predictive query
-    if (q.includes('forecast') || q.includes('predict') || q.includes('future') || q.includes('next month') || q.includes('growth')) {
-      return `📈 **30-Day Predictive Forecast**:\n• **Projected Revenue**: ₹${Math.round(data.predictedRevenue).toLocaleString('en-IN')} (${data.revenueGrowthPct} growth)\n• **Expected Order Volume**: ${data.predictedOrders.toLocaleString()} orders\n• **Forecast Confidence**: 92%\n\nBased on your ${data.revenueByMonth.length}-month sales velocity, category demand is expanding. Check the **Predictive AI** tab for detailed breakdown.`;
-    }
-
-    // Top / Best Seller query
-    if (q.includes('top') || q.includes('best') || q.includes('winner') || q.includes('winning') || q.includes('popular')) {
-      const topList = data.productStats.slice(0, 3).map((p, i) => `${i + 1}. **${p.name}** (${p.revenueFormatted}, ${p.unitsSold} units sold, ${p.growth})`).join('\n• ');
-      return `🏆 **Top Performing Products**:\n• ${topList}\n\nThere are currently **${data.winningCount} high-velocity SKUs** driving strong revenue growth.`;
-    }
-
-    // Declining / Worst / Problem items query
-    if (q.includes('declin') || q.includes('worst') || q.includes('slow') || q.includes('risk') || q.includes('low')) {
-      const declining = data.productStats.filter((p) => p.status === 'declining').slice(0, 3);
-      if (declining.length === 0) {
-        return `✅ Great news! None of your active SKUs are currently classified as declining based on sales volume.`;
-      }
-      const list = declining.map((p) => `**${p.name}** (${p.revenueFormatted}, ${p.unitsSold} units)`).join('\n• ');
-      return `⚠️ **Slow Moving & Declining Items (${data.decliningCount} SKUs)**:\n• ${list}\n\nConsider running promotional bundles or reviewing customer feedback to revitalize demand.`;
-    }
-
-    // Sentiment / Rating / Reviews query
-    if (q.includes('sentiment') || q.includes('rating') || q.includes('review') || q.includes('happy') || q.includes('feedback') || q.includes('star')) {
-      return `⭐ **Customer Sentiment Intelligence**:\n• **Average Store Rating**: ${data.avgRating.toFixed(1)} / 5.0 stars\n• **Positive Feedback**: ${data.sentimentBreakdown.positive}%\n• **Neutral**: ${data.sentimentBreakdown.neutral}%\n• **Negative/Concerns**: ${data.sentimentBreakdown.negative}%\n\nTop satisfaction category: **${data.ratingByCategory[0]?.name || 'N/A'}** (${data.ratingByCategory[0]?.score || 0}/100 satisfaction index).`;
-    }
-
-    // Categories query
-    if (q.includes('category') || q.includes('categories')) {
-      const cats = data.categoryRevenue.map((c) => `**${c.name}**: ₹${Math.round(c.revenue / 1000)}k`).join('\n• ');
-      return `📁 **Category Distribution (${data.categories.length} Categories)**:\n• ${cats}`;
-    }
-
-    // General Summary
-    return `📊 **Quick Business Snapshot**:\n• **Total Revenue**: ₹${Math.round(data.totalRevenue).toLocaleString('en-IN')}\n• **Total Orders**: ${data.totalOrders.toLocaleString()}\n• **Average Rating**: ${data.avgRating.toFixed(1)} / 5.0★\n• **30-Day Projected Revenue**: ₹${Math.round(data.predictedRevenue).toLocaleString('en-IN')} (${data.revenueGrowthPct})\n• **Best Selling SKU**: ${data.bestSeller.name}\n\nLet me know if you want deep-dive analytics on a specific product or category!`;
-  };
-
-  const handleSend = (textToSend?: string) => {
+  const handleSend = async (textToSend?: string) => {
     const text = (textToSend || inputValue).trim();
-    if (!text) return;
+    if (!text || isTyping) return;
 
     const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const userMsg: Message = {
@@ -124,21 +75,62 @@ export default function ChatbotModal({ isOpen, onClose, data, userInfo, onNaviga
       time: now,
     };
 
-    setMessages((prev) => [...prev, userMsg]);
+    const updatedHistory = [...messages, userMsg];
+    setMessages(updatedHistory);
     setInputValue('');
     setIsTyping(true);
 
-    setTimeout(() => {
-      const reply = generateAnswer(text);
+    try {
+      // Build conversation history for context
+      const formattedHistory = updatedHistory.slice(-6).map((m) => ({
+        role: m.sender === 'user' ? 'user' : 'assistant',
+        content: m.text,
+      }));
+
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          message: text,
+          datasetSummary: data || null,
+          history: formattedHistory,
+          provider: 'auto',
+        }),
+      });
+
+      if (!res.ok) {
+        throw new Error(`Server returned status ${res.status}`);
+      }
+
+      const resData = await res.json();
+      const botReply = resData.reply || 'Analysis complete.';
+      const providerLabel = resData.provider || 'BizEye Intelligence Engine';
+      setActiveProvider(providerLabel);
+
       const botMsg: Message = {
         id: (Date.now() + 1).toString(),
         sender: 'assistant',
-        text: reply,
+        text: botReply,
         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        provider: providerLabel,
+      };
+
+      setMessages((prev) => [...prev, botMsg]);
+    } catch (err) {
+      // Graceful fallback response on connection error
+      const botMsg: Message = {
+        id: (Date.now() + 1).toString(),
+        sender: 'assistant',
+        text: `⚠️ **Connection Notice**: Unable to connect to the backend AI service.\n\nPlease verify that the FastAPI backend server is running at port 8000.`,
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        provider: 'Offline Fallback',
       };
       setMessages((prev) => [...prev, botMsg]);
+    } finally {
       setIsTyping(false);
-    }, 450);
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -167,7 +159,7 @@ export default function ChatbotModal({ isOpen, onClose, data, userInfo, onNaviga
                   AI
                 </span>
               </div>
-              <p className="text-[11px] text-blue-100">Live Business & Dataset Intelligence</p>
+              <p className="text-[11px] text-blue-100">Live Business & Multi-LLM Intelligence</p>
             </div>
           </div>
 
@@ -202,10 +194,9 @@ export default function ChatbotModal({ isOpen, onClose, data, userInfo, onNaviga
               >
                 <div className="whitespace-pre-line">
                   {msg.text.split('\n').map((line, i) => {
-                    // Simple inline bold parser
                     const parts = line.split(/(\*\*.*?\*\*)/g);
                     return (
-                      <p key={i} className={line.startsWith('•') ? 'ml-2 my-0.5' : 'my-1'}>
+                      <p key={i} className={line.startsWith('•') || line.startsWith('  •') || line.startsWith('  1.') || line.startsWith('  2.') || line.startsWith('  3.') || line.startsWith('  4.') ? 'ml-2 my-0.5' : 'my-1'}>
                         {parts.map((p, j) =>
                           p.startsWith('**') && p.endsWith('**') ? (
                             <strong key={j} className="font-bold">
@@ -219,13 +210,16 @@ export default function ChatbotModal({ isOpen, onClose, data, userInfo, onNaviga
                     );
                   })}
                 </div>
-                <span
-                  className={`text-[9px] block text-right mt-1 font-mono ${
-                    msg.sender === 'user' ? 'text-blue-200' : 'text-gray-400 dark:text-gray-500'
-                  }`}
-                >
-                  {msg.time}
-                </span>
+                <div className="flex items-center justify-between gap-2 mt-1.5 pt-1 border-t border-black/5 dark:border-white/5 text-[9px] font-mono">
+                  {msg.provider ? (
+                    <span className={msg.sender === 'user' ? 'text-blue-200' : 'text-blue-600 dark:text-sky-400 font-semibold'}>
+                      {msg.provider}
+                    </span>
+                  ) : <span />}
+                  <span className={msg.sender === 'user' ? 'text-blue-200' : 'text-gray-400 dark:text-gray-500'}>
+                    {msg.time}
+                  </span>
+                </div>
               </div>
 
               {msg.sender === 'user' && (
@@ -292,9 +286,10 @@ export default function ChatbotModal({ isOpen, onClose, data, userInfo, onNaviga
               <Send className="w-4 h-4" />
             </button>
           </form>
-          <p className="text-[10px] text-gray-400 dark:text-gray-500 text-center mt-2 font-mono">
-            Powered by BizEye AI Intelligence
-          </p>
+          <div className="flex items-center justify-between text-[10px] text-gray-400 dark:text-gray-500 mt-2 font-mono px-1">
+            <span>Powered by BizEye AI</span>
+            <span>{activeProvider}</span>
+          </div>
         </div>
       </div>
     </div>
