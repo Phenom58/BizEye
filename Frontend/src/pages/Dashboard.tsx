@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import {
   Eye, LayoutDashboard, BarChart3, MessageSquareHeart, TrendingUp,
   Upload, LogOut, Search, Bell, Sparkles, User, Settings,
-  AlertTriangle, Info, Moon, Sun, Home, ChevronDown, Bot, Check, Loader2
+  AlertTriangle, Info, Moon, Sun, Home, ChevronDown, Bot, Check, Loader2, X
 } from 'lucide-react';
 import Overview from '@/components/dashboard/Overview';
 import Performance from '@/components/dashboard/Performance';
@@ -139,7 +139,23 @@ export default function Dashboard({ userInfo, onUpdateUserInfo, onLogout, onGoHo
   const handleMarkSingleRead = (id: string) => setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, unread: false } : n)));
   const handleClearNotifications = () => setNotifications([]);
 
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  const handleCancelUpload = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    setUploadState({ isUploading: false, fileName: '', progress: 0, error: null });
+  };
+
   const handleStartUpload = async (file: File) => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
     if (!file.name.toLowerCase().endsWith('.csv')) {
       setUploadState({ isUploading: false, fileName: file.name, progress: 0, error: 'Please upload a valid .csv file.' });
       return;
@@ -158,6 +174,7 @@ export default function Dashboard({ userInfo, onUpdateUserInfo, onLogout, onGoHo
       const response = await fetch('/api/upload', {
         method: 'POST',
         body: formData,
+        signal: controller.signal,
       });
 
       const resData = await response.json();
@@ -169,8 +186,14 @@ export default function Dashboard({ userInfo, onUpdateUserInfo, onLogout, onGoHo
 
       setUploadState({ isUploading: false, fileName: file.name, progress: 100, error: null });
       handleDatasetLoaded(resData.data, file.name);
-    } catch (err) {
+    } catch (err: any) {
+      if (err.name === 'AbortError') {
+        setUploadState({ isUploading: false, fileName: '', progress: 0, error: null });
+        return;
+      }
       setUploadState({ isUploading: false, fileName: file.name, progress: 0, error: 'Unable to connect to backend server. Make sure FastAPI is running on port 8000.' });
+    } finally {
+      abortControllerRef.current = null;
     }
   };
 
@@ -475,9 +498,17 @@ export default function Dashboard({ userInfo, onUpdateUserInfo, onLogout, onGoHo
           <div className="flex items-center gap-2">
             {/* Background Upload Status Indicator */}
             {uploadState.isUploading && (
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-500/30 text-blue-700 dark:text-sky-300 text-xs font-semibold shadow-xs animate-pulse">
+              <div className="flex items-center gap-2 pl-3 pr-2 py-1.5 rounded-full bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-500/30 text-blue-700 dark:text-sky-300 text-xs font-semibold shadow-xs">
                 <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-600 dark:text-sky-400 shrink-0" />
                 <span className="truncate max-w-[120px] sm:max-w-[180px]">Uploading {uploadState.fileName}...</span>
+                <button
+                  type="button"
+                  onClick={handleCancelUpload}
+                  className="w-5 h-5 rounded-full hover:bg-rose-100 dark:hover:bg-rose-950/60 hover:text-rose-600 dark:hover:text-rose-400 flex items-center justify-center transition-colors cursor-pointer ml-1 shrink-0"
+                  title="Cancel upload"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
               </div>
             )}
 
@@ -681,6 +712,7 @@ export default function Dashboard({ userInfo, onUpdateUserInfo, onLogout, onGoHo
             <DataUpload
               uploadState={uploadState}
               onStartUpload={handleStartUpload}
+              onCancelUpload={handleCancelUpload}
               onDataLoaded={handleDatasetLoaded}
               onDataCleared={handleDatasetRemoved}
               currentData={dashboardData}

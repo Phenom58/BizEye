@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { Upload, FileText, CheckCircle, AlertCircle, Table, Trash2, Sparkles, Cpu } from 'lucide-react';
+import { Upload, FileText, CheckCircle, AlertCircle, Table, Trash2, Sparkles, Cpu, X } from 'lucide-react';
 import type { DashboardData } from '@/utils/csvParser';
 
 export interface UploadState {
@@ -12,21 +12,16 @@ export interface UploadState {
 interface Props {
   uploadState?: UploadState;
   onStartUpload?: (file: File) => void;
+  onCancelUpload?: () => void;
   onDataLoaded: (data: DashboardData, fileName?: string) => void;
   onDataCleared?: () => void;
   currentData: DashboardData | null;
 }
 
-const PROCESSING_STEPS = [
-  { id: 1, label: 'Reading CSV Stream' },
-  { id: 2, label: 'Validating Schema & Columns' },
-  { id: 3, label: 'Calculating Revenue & Sentiment' },
-  { id: 4, label: 'Generating AI 30-Day Forecast' },
-];
-
 export default function DataUpload({
   uploadState,
   onStartUpload,
+  onCancelUpload,
   onDataLoaded,
   onDataCleared,
   currentData
@@ -133,7 +128,20 @@ export default function DataUpload({
         <input ref={fileRef} type="file" accept=".csv" onChange={handleChange} className="hidden" />
 
         {isUploading ? (
-          <div className="flex flex-col items-center max-w-md mx-auto space-y-6 animate-fade-in">
+          <div className="relative flex flex-col items-center max-w-md mx-auto space-y-5 animate-fade-in">
+            {/* Top-Right Cancel X Button */}
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                if (onCancelUpload) onCancelUpload();
+              }}
+              className="absolute -top-3 -right-3 w-8 h-8 rounded-full bg-gray-100 hover:bg-rose-100 dark:bg-crystal-800 dark:hover:bg-rose-950/60 text-gray-500 hover:text-rose-600 dark:text-gray-400 dark:hover:text-rose-400 flex items-center justify-center transition-colors cursor-pointer border border-gray-200/80 dark:border-white/[0.1] shadow-xs"
+              title="Cancel upload"
+            >
+              <X className="w-4 h-4" />
+            </button>
+
             {/* Animated Glowing Ring & Icon */}
             <div className="relative flex items-center justify-center">
               <div className="w-20 h-20 rounded-full border-4 border-blue-500/20 dark:border-blue-500/20 border-t-blue-600 dark:border-t-sky-400 animate-spin" />
@@ -167,6 +175,18 @@ export default function DataUpload({
                 />
               </div>
             </div>
+
+            {/* Cancel Upload Button */}
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                if (onCancelUpload) onCancelUpload();
+              }}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gray-100 hover:bg-rose-50 dark:bg-crystal-800 dark:hover:bg-rose-950/40 text-gray-600 hover:text-rose-600 dark:text-gray-300 dark:hover:text-rose-400 text-xs font-semibold transition-colors cursor-pointer border border-gray-200/80 dark:border-white/[0.08] shadow-xs"
+            >
+              <X className="w-3.5 h-3.5" /> Cancel Upload
+            </button>
           </div>
         ) : currentData ? (
           <div className="flex flex-col items-center gap-4 animate-fade-in">
