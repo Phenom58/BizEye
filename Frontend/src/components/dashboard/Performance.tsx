@@ -31,16 +31,96 @@ export default function Performance({ data, onNavigate }: Props) {
 
   const summaryCards = data
     ? [
-        { label: 'Top Seller', value: data.bestSeller.name, sub: data.bestSeller.revenue + ' revenue', icon: Package, bg: 'bg-amber-50 border-amber-200/60 text-amber-600 dark:bg-amber-950/20 dark:border-amber-500/20 dark:text-amber-400' },
-        { label: 'Active SKUs', value: String(data.totalSKUs), sub: `${data.productStats.length} active items`, icon: Layers, bg: 'bg-sky-50 border-sky-200/60 text-sky-600 dark:bg-sky-950/20 dark:border-sky-500/20 dark:text-sky-400' },
-        { label: 'High Velocity', value: String(data.winningCount), sub: 'Growth > 10%', icon: TrendingUp, bg: 'bg-emerald-50 border-emerald-200/60 text-emerald-600 dark:bg-emerald-950/20 dark:border-emerald-500/20 dark:text-emerald-400' },
-        { label: 'Slow Moving', value: String(data.decliningCount), sub: 'Action needed', icon: TrendingDown, bg: 'bg-rose-50 border-rose-200/60 text-rose-600 dark:bg-rose-950/20 dark:border-rose-500/20 dark:text-rose-400' },
+        {
+          label: 'Top Seller',
+          value: data.bestSeller.name,
+          sub: data.bestSeller.revenue + ' revenue',
+          icon: Package,
+          cardBg: 'bg-gradient-to-br from-[#f59e0b] via-[#ea580c] to-[#d97706] text-white shadow-lg shadow-orange-500/20 border border-white/20',
+          iconBg: 'bg-white/20 backdrop-blur-md text-white border border-white/30 shadow-inner',
+          labelColor: 'text-white/95',
+          valColor: 'text-white',
+          subColor: 'text-white/80',
+        },
+        {
+          label: 'Active SKUs',
+          value: String(data.totalSKUs),
+          sub: `${data.productStats.length} active items`,
+          icon: Layers,
+          cardBg: 'bg-gradient-to-br from-[#0ea5e9] via-[#3b82f6] to-[#2563eb] text-white shadow-lg shadow-blue-500/20 border border-white/20',
+          iconBg: 'bg-white/20 backdrop-blur-md text-white border border-white/30 shadow-inner',
+          labelColor: 'text-white/95',
+          valColor: 'text-white',
+          subColor: 'text-white/80',
+        },
+        {
+          label: 'High Velocity',
+          value: String(data.winningCount),
+          sub: 'Growth > 10%',
+          icon: TrendingUp,
+          cardBg: 'bg-gradient-to-br from-[#10b981] via-[#059669] to-[#047857] text-white shadow-lg shadow-emerald-500/20 border border-white/20',
+          iconBg: 'bg-white/20 backdrop-blur-md text-white border border-white/30 shadow-inner',
+          labelColor: 'text-white/95',
+          valColor: 'text-white',
+          subColor: 'text-white/80',
+        },
+        {
+          label: 'Slow Moving',
+          value: String(data.decliningCount),
+          sub: 'Action needed',
+          icon: TrendingDown,
+          cardBg: 'bg-gradient-to-br from-[#fb7185] via-[#f43f5e] to-[#e11d48] text-white shadow-lg shadow-rose-500/20 border border-white/20',
+          iconBg: 'bg-white/20 backdrop-blur-md text-white border border-white/30 shadow-inner',
+          labelColor: 'text-white/95',
+          valColor: 'text-white',
+          subColor: 'text-white/80',
+        },
       ]
     : [
-        { label: 'Top Seller', value: '--', sub: '₹0 revenue', icon: Package, bg: 'bg-amber-50 border-amber-200/60 text-amber-600 dark:bg-amber-950/20 dark:border-amber-500/20 dark:text-amber-400' },
-        { label: 'Active SKUs', value: '0', sub: '0 active', icon: Layers, bg: 'bg-sky-50 border-sky-200/60 text-sky-600 dark:bg-sky-950/20 dark:border-sky-500/20 dark:text-sky-400' },
-        { label: 'High Velocity', value: '0', sub: 'No data', icon: TrendingUp, bg: 'bg-emerald-50 border-emerald-200/60 text-emerald-600 dark:bg-emerald-950/20 dark:border-emerald-500/20 dark:text-emerald-400' },
-        { label: 'Slow Moving', value: '0', sub: 'No data', icon: TrendingDown, bg: 'bg-rose-50 border-rose-200/60 text-rose-600 dark:bg-rose-950/20 dark:border-rose-500/20 dark:text-rose-400' },
+        {
+          label: 'Top Seller',
+          value: '--',
+          sub: '₹0 revenue',
+          icon: Package,
+          cardBg: 'bg-gradient-to-br from-[#f59e0b] via-[#ea580c] to-[#d97706] text-white shadow-lg shadow-orange-500/20 border border-white/20',
+          iconBg: 'bg-white/20 backdrop-blur-md text-white border border-white/30 shadow-inner',
+          labelColor: 'text-white/95',
+          valColor: 'text-white',
+          subColor: 'text-white/80',
+        },
+        {
+          label: 'Active SKUs',
+          value: '0',
+          sub: '0 active',
+          icon: Layers,
+          cardBg: 'bg-gradient-to-br from-[#0ea5e9] via-[#3b82f6] to-[#2563eb] text-white shadow-lg shadow-blue-500/20 border border-white/20',
+          iconBg: 'bg-white/20 backdrop-blur-md text-white border border-white/30 shadow-inner',
+          labelColor: 'text-white/95',
+          valColor: 'text-white',
+          subColor: 'text-white/80',
+        },
+        {
+          label: 'High Velocity',
+          value: '0',
+          sub: 'No data',
+          icon: TrendingUp,
+          cardBg: 'bg-gradient-to-br from-[#10b981] via-[#059669] to-[#047857] text-white shadow-lg shadow-emerald-500/20 border border-white/20',
+          iconBg: 'bg-white/20 backdrop-blur-md text-white border border-white/30 shadow-inner',
+          labelColor: 'text-white/95',
+          valColor: 'text-white',
+          subColor: 'text-white/80',
+        },
+        {
+          label: 'Slow Moving',
+          value: '0',
+          sub: 'No data',
+          icon: TrendingDown,
+          cardBg: 'bg-gradient-to-br from-[#fb7185] via-[#f43f5e] to-[#e11d48] text-white shadow-lg shadow-rose-500/20 border border-white/20',
+          iconBg: 'bg-white/20 backdrop-blur-md text-white border border-white/30 shadow-inner',
+          labelColor: 'text-white/95',
+          valColor: 'text-white',
+          subColor: 'text-white/80',
+        },
       ];
 
   const monthlyData = data?.revenueByMonth || [];
@@ -49,16 +129,18 @@ export default function Performance({ data, onNavigate }: Props) {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      {/* 4 Summary Pastel Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* 4 Summary Duotone Gradient Cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
         {summaryCards.map((s) => (
-          <div key={s.label} className={`${s.bg} border rounded-3xl p-5 shadow-2xs hover:-translate-y-1 transition-all duration-300`}>
-            <div className="w-10 h-10 rounded-2xl bg-white/80 dark:bg-crystal-900/90 backdrop-blur-xs flex items-center justify-center shadow-2xs mb-3">
+          <div key={s.label} className={`${s.cardBg} rounded-3xl p-5 sm:p-6 shadow-md hover:-translate-y-1 transition-all duration-300 flex flex-col justify-between`}>
+            <div className={`w-11 h-11 rounded-2xl ${s.iconBg} flex items-center justify-center mb-4`}>
               <s.icon className="w-5 h-5" />
             </div>
-            <p className="text-xl font-bold text-gray-900 dark:text-white truncate tracking-tight">{s.value}</p>
-            <p className="text-xs font-semibold text-gray-600 dark:text-gray-400">{s.label}</p>
-            <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5">{s.sub}</p>
+            <div>
+              <p className={`text-xl sm:text-2xl font-black ${s.valColor} truncate tracking-tight mb-1`}>{s.value}</p>
+              <p className={`text-xs font-bold ${s.labelColor} tracking-wide uppercase`}>{s.label}</p>
+              <p className={`text-xs ${s.subColor} font-medium mt-0.5`}>{s.sub}</p>
+            </div>
           </div>
         ))}
       </div>
