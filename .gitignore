@@ -1,8 +1,10 @@
-# ==========================================
-# STRICT SECURITY & SECRETS PROTECTION
-# ==========================================
+# ==============================================================================
+# BIZEYE - COMPREHENSIVE GITIGNORE
+# ==============================================================================
 
-# Environment Files & API Secrets
+# ------------------------------------------------------------------------------
+# 1. SECURITY, SECRETS & CREDENTIALS (STRICT PROTECTION)
+# ------------------------------------------------------------------------------
 .env
 .env.*
 *.env
@@ -12,8 +14,9 @@
 .env.test.local
 .env.production.local
 *.local
+!.env.example
 
-# Cryptographic Keys & Certificates
+# Cryptographic private keys and certificates
 *.pem
 *.key
 *.crt
@@ -21,12 +24,13 @@
 *.pfx
 *.p12
 *.asc
+*.keystore
 id_rsa
 id_rsa.pub
 id_ed25519
 id_ed25519.pub
 
-# Cloud Credentials & Service Accounts
+# Cloud credentials & service accounts
 service-account*.json
 service_account*.json
 client_secret*.json
@@ -37,26 +41,30 @@ aws_credentials
 .gcp/
 .azure/
 
-# Databases, Storage & Local Data
-*.db
-*.sqlite
-*.sqlite3
-*.rdb
-uploads/
-storage/
-
-# Python & Backend Artifacts
+# ------------------------------------------------------------------------------
+# 2. PYTHON & BACKEND ARTIFACTS
+# ------------------------------------------------------------------------------
 __pycache__/
+*/__pycache__/
+*/**/__pycache__/
 *.py[cod]
 *$py.class
 *.so
 .Python
-env/
+
+# Virtual environments
 venv/
 .venv/
+env/
 ENV/
+env.bak/
+venv.bak/
+server/venv/
+server/.venv/
+server/env/
+
+# Packaging and distribution
 build/
-develop-eggs/
 dist/
 downloads/
 eggs/
@@ -70,71 +78,105 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+
+# Testing, typing and linting cache
 .pytest_cache/
 .coverage
+.coverage.*
 htmlcov/
 .mypy_cache/
 .ruff_cache/
+.tox/
+.nox/
+nosetests.xml
+coverage.xml
 
-# Node.js & Frontend Build Outputs
+# ------------------------------------------------------------------------------
+# 3. NODE.JS & FRONTEND BUILD ARTIFACTS
+# ------------------------------------------------------------------------------
 node_modules/
 */node_modules/
+*/**/node_modules/
+jspm_packages/
+.pnp
+.pnp.js
+
+# Frontend production builds & vite cache
 Frontend/dist/
+Frontend/dist-ssr/
 Frontend/.vite/
 dist/
 dist-ssr/
-build/
 .vite/
 *.tsbuildinfo
 
-# Testing & Coverage
-coverage/
-.nyc_output/
-
-# Logs & Debug Reports
+# Package manager logs
 logs/
 *.log
 npm-debug.log*
 yarn-debug.log*
+yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 
-# Datasets & Proprietary Data Files
-datasets/
-*.csv
-*.xlsx
-*.parquet
+# Frontend caches
+.eslintcache
+.stylelintcache
+.turbo/
+.parcel-cache/
 
-# IDE, Editor & OS Metadata
-.vscode/
-!.vscode/extensions.json
-.idea/
-*.sw?
-*.swo
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
+# ------------------------------------------------------------------------------
+# 4. DATABASES, RUNTIME STORAGE & TEMPORARY UPLOADS
+# ------------------------------------------------------------------------------
+*.db
+*.sqlite
+*.sqlite3
+*.rdb
+uploads/
+*/uploads/
+server/uploads/
+storage/
+*/storage/
+server/storage/
+temp_uploads/
+*.tmp.csv
+
+# ------------------------------------------------------------------------------
+# 5. IDE, EDITOR & OS METADATA
+# ------------------------------------------------------------------------------
 .DS_Store
 .DS_Store?
 ._*
 .Spotlight-V100
 .Trashes
-Thumbs.db
 ehthumbs.db
+Thumbs.db
 
-# AI Agents, Tools, Cache & Scratch Files
+# IDE configuration
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+.idea/
+*.sw?
+*.swo
+*.swn
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+
+# ------------------------------------------------------------------------------
+# 6. AI AGENTS, TOOLS & TEMPORARY SCRATCHPADS
+# ------------------------------------------------------------------------------
 .gemini/
 .antigravity/
 .claude/
 .cursor/
 .cache/
-.eslintcache
-.turbo/
-.parcel-cache/
 scratch/
-ignoreFolder/
 tmp/
 .tmp/
 *.bak

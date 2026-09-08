@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
-import { Upload, FileText, CheckCircle, AlertCircle, Table, Trash2, Sparkles, Cpu, X } from 'lucide-react';
-import type { DashboardData } from '@/utils/csvParser';
+import { Upload, FileText, CheckCircle, AlertCircle, Table, Trash2, Sparkles, Cpu, X, ShieldCheck, Download, CheckCircle2, Wrench, RefreshCw } from 'lucide-react';
+import { DashboardData, exportAnalyticsToCSV } from '@/utils/csvParser';
 
 export interface UploadState {
   isUploading: boolean;
@@ -100,12 +100,30 @@ export default function DataUpload({
     if (onDataCleared) onDataCleared();
   };
 
+  const handleDownloadCleanedCSV = () => {
+    if (!currentData) return;
+    const csvContent = exportAnalyticsToCSV(currentData);
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `bizeye_cleaned_analytics_${Date.now()}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const quality = currentData?.dataQuality;
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div>
+        <div className="inline-flex items-center gap-2 bg-blue-600/10 dark:bg-blue-500/10 text-blue-700 dark:text-sky-300 text-xs font-semibold px-3 py-1 rounded-full border border-blue-200/50 dark:border-blue-500/20 mb-2">
+          <ShieldCheck className="w-3.5 h-3.5" /> Automated Data Ingestion & Validation Pipeline
+        </div>
         <h2 className="text-2xl font-extrabold text-gray-900 dark:text-white">Upload Sales CSV Dataset</h2>
         <p className="text-xs text-gray-400 mt-0.5">
-          Import your store transactions to populate real-time dashboards and generate AI predictions.
+          Drag & drop your store dataset to automatically validate, clean, and populate real-time dashboards with AI predictions.
         </p>
       </div>
 
@@ -142,12 +160,12 @@ export default function DataUpload({
               <X className="w-4 h-4" />
             </button>
 
-            {/* Animated Glowing Ring & Icon */}
+            {/* Glowing Ring & Icon */}
             <div className="relative flex items-center justify-center">
               <div className="w-20 h-20 rounded-full border-4 border-blue-500/20 dark:border-blue-500/20 border-t-blue-600 dark:border-t-sky-400 animate-spin" />
               <div className="absolute inset-0 flex items-center justify-center">
-                <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-blue-600 to-sky-400 text-white flex items-center justify-center shadow-lg shadow-blue-500/30 animate-pulse">
-                  <Sparkles className="w-6 h-6 text-white" />
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-blue-600 to-sky-400 text-white flex items-center justify-center shadow-lg shadow-blue-500/30">
+                  <Upload className="w-6 h-6 text-white" />
                 </div>
               </div>
             </div>
@@ -164,7 +182,7 @@ export default function DataUpload({
               <div className="flex items-center justify-between text-xs font-mono">
                 <span className="text-blue-600 dark:text-sky-400 font-bold flex items-center gap-1.5">
                   <Cpu className="w-3.5 h-3.5 animate-spin" />
-                  Analyzing Store Analytics...
+                  Cleaning and computing analytics in memory...
                 </span>
                 <span className="font-extrabold text-gray-700 dark:text-gray-200">{progress}%</span>
               </div>
@@ -194,7 +212,7 @@ export default function DataUpload({
               <CheckCircle className="w-8 h-8" />
             </div>
             <div>
-              <p className="text-base font-bold text-emerald-700 dark:text-emerald-400">Dataset Loaded Successfully!</p>
+              <p className="text-base font-bold text-emerald-700 dark:text-emerald-400">Dataset Loaded & Cleaned Successfully!</p>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Click to upload a different CSV</p>
             </div>
           </div>
@@ -216,11 +234,93 @@ export default function DataUpload({
             </div>
             <div>
               <p className="text-base font-bold text-gray-900 dark:text-white">Drag & drop your sales CSV dataset here</p>
-              <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">or click to browse files · Supports files up to 50MB</p>
+              <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">or click to browse files · Instant parsing with auto-cleaning · Max 50MB</p>
             </div>
           </div>
         )}
       </div>
+
+      {/* ── 2. DATA QUALITY & AUTOMATIC CLEANING SCORECARD (v1.5 PDF Spec) ── */}
+      {currentData && quality && (
+        <div className="bg-white dark:bg-crystal-900 border border-gray-100/90 dark:border-white/[0.08] rounded-3xl p-6 shadow-xs space-y-5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center border border-emerald-100 dark:border-emerald-500/20 shrink-0">
+                <ShieldCheck className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-gray-900 dark:text-white">Dataset Quality & Auto-Cleaning Scorecard</h3>
+                <p className="text-xs text-gray-400 dark:text-gray-500">
+                  Data anomalies, missing values, and date formats were automatically normalized
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-extrabold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200/60 dark:border-emerald-500/30 px-3 py-1.5 rounded-full flex items-center gap-1.5">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                {quality.score}% Quality Score
+              </span>
+              <button
+                onClick={handleDownloadCleanedCSV}
+                className="px-3.5 py-1.5 rounded-xl bg-gray-50 hover:bg-gray-100 dark:bg-crystal-800 dark:hover:bg-crystal-750 text-xs font-bold text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-white/[0.08] transition-all flex items-center gap-1.5 cursor-pointer"
+              >
+                <Download className="w-3.5 h-3.5 text-blue-600 dark:text-sky-400" /> Export Clean CSV
+              </button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="bg-gray-50/70 dark:bg-crystal-850/60 p-3.5 rounded-2xl border border-gray-100 dark:border-white/[0.04]">
+              <span className="text-[10px] text-gray-400 dark:text-gray-500 uppercase font-bold tracking-wider block">
+                Issues Fixed Automatically
+              </span>
+              <p className="text-base font-black text-gray-900 dark:text-white mt-1">
+                {quality.issuesFixed} Issues
+              </p>
+              <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1 mt-0.5">
+                <Wrench className="w-2.5 h-2.5" /> Auto-remediated
+              </span>
+            </div>
+
+            <div className="bg-gray-50/70 dark:bg-crystal-850/60 p-3.5 rounded-2xl border border-gray-100 dark:border-white/[0.04]">
+              <span className="text-[10px] text-gray-400 dark:text-gray-500 uppercase font-bold tracking-wider block">
+                Missing Values Handled
+              </span>
+              <p className="text-base font-black text-gray-900 dark:text-white mt-1">
+                {quality.missingValuesFilled} Filled
+              </p>
+              <span className="text-[10px] text-blue-600 dark:text-sky-400 font-semibold mt-0.5 block">
+                Interpolated from prices
+              </span>
+            </div>
+
+            <div className="bg-gray-50/70 dark:bg-crystal-850/60 p-3.5 rounded-2xl border border-gray-100 dark:border-white/[0.04]">
+              <span className="text-[10px] text-gray-400 dark:text-gray-500 uppercase font-bold tracking-wider block">
+                Duplicates Filtered
+              </span>
+              <p className="text-base font-black text-gray-900 dark:text-white mt-1">
+                {quality.duplicatesRemoved} Removed
+              </p>
+              <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold mt-0.5 block">
+                Unique Txn Verified
+              </span>
+            </div>
+
+            <div className="bg-gray-50/70 dark:bg-crystal-850/60 p-3.5 rounded-2xl border border-gray-100 dark:border-white/[0.04]">
+              <span className="text-[10px] text-gray-400 dark:text-gray-500 uppercase font-bold tracking-wider block">
+                Date Normalization
+              </span>
+              <p className="text-base font-black text-gray-900 dark:text-white mt-1">
+                {quality.dateNormalized} Standardized
+              </p>
+              <span className="text-[10px] text-blue-600 dark:text-sky-400 font-semibold mt-0.5 block">
+                ISO-8601 Format
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* CSV Column Format Reference */}
       <div className="bg-white dark:bg-crystal-900 border border-gray-100/90 dark:border-white/[0.08] rounded-3xl p-6 shadow-xs">

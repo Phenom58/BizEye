@@ -1,69 +1,84 @@
 import { useState, useRef } from 'react';
-import { Upload, FileText, CheckCircle, AlertCircle, X, ArrowRight } from 'lucide-react';
-import { readFileAsText, parseCSV, validateCSVHeaders, computeAnalytics } from '@/utils/csvParser';
-import type { DashboardData } from '@/utils/csvParser';
+import { Upload, FileText, CheckCircle, AlertCircle, Table, Trash2, Sparkles, Cpu, X, ShieldCheck, Download, CheckCircle2, Wrench, RefreshCw } from 'lucide-react';
+import { DashboardData, exportAnalyticsToCSV } from '@/utils/csvParser';
+
+export interface UploadState {
+  isUploading: boolean;
+  fileName: string;
+  progress: number;
+  error: string | null;
+}
 
 interface Props {
-  onDataLoaded: (data: DashboardData) => void;
+  uploadState?: UploadState;
+  onStartUpload?: (file: File) => void;
+  onCancelUpload?: () => void;
+  onDataLoaded: (data: DashboardData, fileName?: string) => void;
+  onDataCleared?: () => void;
   currentData: DashboardData | null;
 }
 
-export default function DataUpload({ onDataLoaded, currentData }: Props) {
+export default function DataUpload({
+  uploadState,
+  onStartUpload,
+  onCancelUpload,
+  onDataLoaded,
+  onDataCleared,
+  currentData
+}: Props) {
   const [dragOver, setDragOver] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState(false);
-  const [fileName, setFileName] = useState('');
+  const [localLoading, setLocalLoading] = useState(false);
+  const [localError, setLocalError] = useState('');
+  const [localFileName, setLocalFileName] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const handleFile = async (file: File) => {
-    setError('');
-    setSuccess(false);
+  const isUploading = uploadState ? uploadState.isUploading : localLoading;
+  const fileName = uploadState ? uploadState.fileName : localFileName;
+  const error = uploadState ? uploadState.error : localError;
+  const progress = uploadState ? uploadState.progress : 60;
 
-    if (!file.name.endsWith('.csv')) {
-      setError('Please upload a .csv file.');
+  const handleFile = async (file: File) => {
+    if (onStartUpload) {
+      onStartUpload(file);
+      return;
+    }
+
+    setLocalError('');
+    if (!file.name.toLowerCase().endsWith('.csv')) {
+      setLocalError('Please upload a valid .csv file.');
       return;
     }
 
     if (file.size > 50 * 1024 * 1024) {
-      setError('File too large. Maximum size is 50MB.');
+      setLocalError('File too large. Maximum size is 50MB.');
       return;
     }
 
-    setLoading(true);
-    setFileName(file.name);
+    setLocalLoading(true);
+    setLocalFileName(file.name);
 
     try {
-      const text = await readFileAsText(file);
+      const formData = new FormData();
+      formData.append('file', file);
 
-      // Validate headers
-      const validation = validateCSVHeaders(text);
-      if (!validation.valid) {
-        setError(`Missing columns: ${validation.missing.join(', ')}`);
-        setLoading(false);
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const resData = await response.json();
+
+      if (!response.ok || !resData.success) {
+        setLocalError(resData.detail || resData.error || 'Failed to process file on backend server.');
+        setLocalLoading(false);
         return;
       }
 
-      // Parse CSV
-      const rows = parseCSV(text);
-      if (rows.length === 0) {
-        setError('No data rows found in the file.');
-        setLoading(false);
-        return;
-      }
-
-      // Compute analytics
-      const data = computeAnalytics(rows);
-
-      // Small delay for UX polish
-      await new Promise((r) => setTimeout(r, 600));
-
-      onDataLoaded(data);
-      setSuccess(true);
+      onDataLoaded(resData.data, file.name);
+      setLocalLoading(false);
     } catch (err) {
-      setError('Failed to parse the file. Please check the format.');
-    } finally {
-      setLoading(false);
+      setLocalError('Unable to connect to the backend server. Please make sure the FastAPI server is running on port 8000.');
+      setLocalLoading(false);
     }
   };
 
@@ -79,157 +94,286 @@ export default function DataUpload({ onDataLoaded, currentData }: Props) {
     if (file) handleFile(file);
   };
 
+  const handleClear = () => {
+    setLocalFileName('');
+    if (fileRef.current) fileRef.current.value = '';
+    if (onDataCleared) onDataCleared();
+  };
+
+  const handleDownloadCleanedCSV = () => {
+    if (!currentData) return;
+    const csvContent = exportAnalyticsToCSV(currentData);
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `bizeye_cleaned_analytics_${Date.now()}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const quality = currentData?.dataQuality;
+
   return (
     <div className="space-y-6 animate-fade-in">
-      {/* Header */}
       <div>
-        <h2 className="text-xl font-semibold text-gray-900 mb-1">Upload Dataset</h2>
-        <p className="text-sm text-gray-500">
-          Upload a CSV file with your sales data to generate real-time intelligence across all dashboard tabs.
+        <div className="inline-flex items-center gap-2 bg-blue-600/10 dark:bg-blue-500/10 text-blue-700 dark:text-sky-300 text-xs font-semibold px-3 py-1 rounded-full border border-blue-200/50 dark:border-blue-500/20 mb-2">
+          <ShieldCheck className="w-3.5 h-3.5" /> Automated Data Ingestion & Validation Pipeline
+        </div>
+        <h2 className="text-2xl font-extrabold text-gray-900 dark:text-white">Upload Sales CSV Dataset</h2>
+        <p className="text-xs text-gray-400 mt-0.5">
+          Drag & drop your store dataset to automatically validate, clean, and populate real-time dashboards with AI predictions.
         </p>
       </div>
 
-      {/* Upload zone */}
+      {/* Upload Drag & Drop Zone */}
       <div
         onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
         onDragLeave={() => setDragOver(false)}
         onDrop={handleDrop}
-        className={`relative border-2 border-dashed rounded-2xl p-12 text-center transition-all duration-300 cursor-pointer ${
+        className={`relative border-2 border-dashed rounded-3xl p-8 sm:p-12 text-center transition-all duration-300 cursor-pointer overflow-hidden ${
           dragOver
-            ? 'border-sky-400 bg-sky-50/50 scale-[1.01]'
+            ? 'border-blue-500 bg-blue-50/50 dark:bg-blue-950/30 scale-[1.01]'
             : error
-            ? 'border-red-300 bg-red-50/30'
-            : success
-            ? 'border-emerald-300 bg-emerald-50/30'
-            : 'border-gray-200 bg-white hover:border-sky-300 hover:bg-sky-50/20'
+            ? 'border-rose-300 dark:border-rose-500/30 bg-rose-50/20 dark:bg-rose-950/20'
+            : currentData
+            ? 'border-emerald-300 dark:border-emerald-500/30 bg-emerald-50/20 dark:bg-emerald-950/20'
+            : 'border-gray-200/90 dark:border-white/[0.08] bg-white dark:bg-crystal-900 hover:border-blue-400 dark:hover:border-blue-500/50 hover:bg-blue-50/20 dark:hover:bg-crystal-850 shadow-xs'
         }`}
-        onClick={() => fileRef.current?.click()}
+        onClick={() => !isUploading && fileRef.current?.click()}
       >
-        <input
-          ref={fileRef}
-          type="file"
-          accept=".csv"
-          onChange={handleChange}
-          className="hidden"
-        />
+        <input ref={fileRef} type="file" accept=".csv" onChange={handleChange} className="hidden" />
 
-        {loading ? (
-          <div className="flex flex-col items-center gap-4">
-            <div className="w-12 h-12 border-3 border-sky-400 border-t-transparent rounded-full animate-spin" />
-            <div>
-              <p className="text-sm font-medium text-gray-700">Processing {fileName}…</p>
-              <p className="text-xs text-gray-400 mt-1">Parsing data and computing analytics</p>
+        {isUploading ? (
+          <div className="relative flex flex-col items-center max-w-md mx-auto space-y-5 animate-fade-in">
+            {/* Top-Right Cancel X Button */}
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                if (onCancelUpload) onCancelUpload();
+              }}
+              className="absolute -top-3 -right-3 w-8 h-8 rounded-full bg-gray-100 hover:bg-rose-100 dark:bg-crystal-800 dark:hover:bg-rose-950/60 text-gray-500 hover:text-rose-600 dark:text-gray-400 dark:hover:text-rose-400 flex items-center justify-center transition-colors cursor-pointer border border-gray-200/80 dark:border-white/[0.1] shadow-xs"
+              title="Cancel upload"
+            >
+              <X className="w-4 h-4" />
+            </button>
+
+            {/* Glowing Ring & Icon */}
+            <div className="relative flex items-center justify-center">
+              <div className="w-20 h-20 rounded-full border-4 border-blue-500/20 dark:border-blue-500/20 border-t-blue-600 dark:border-t-sky-400 animate-spin" />
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-blue-600 to-sky-400 text-white flex items-center justify-center shadow-lg shadow-blue-500/30">
+                  <Upload className="w-6 h-6 text-white" />
+                </div>
+              </div>
             </div>
+
+            {/* Title & File Name */}
+            <div className="text-center space-y-1">
+              <h3 className="text-base font-extrabold text-gray-900 dark:text-white">
+                Processing {fileName || 'Dataset'}
+              </h3>
+            </div>
+
+            {/* Visual Animated Progress Bar */}
+            <div className="w-full space-y-2">
+              <div className="flex items-center justify-between text-xs font-mono">
+                <span className="text-blue-600 dark:text-sky-400 font-bold flex items-center gap-1.5">
+                  <Cpu className="w-3.5 h-3.5 animate-spin" />
+                  Cleaning and computing analytics in memory...
+                </span>
+                <span className="font-extrabold text-gray-700 dark:text-gray-200">{progress}%</span>
+              </div>
+              <div className="w-full h-2.5 bg-gray-100 dark:bg-crystal-800 rounded-full overflow-hidden p-0.5 border border-gray-200/50 dark:border-white/[0.06]">
+                <div
+                  className="h-full bg-gradient-to-r from-blue-600 via-sky-500 to-indigo-500 rounded-full transition-all duration-300 shadow-sm"
+                  style={{ width: `${progress}%` }}
+                />
+              </div>
+            </div>
+
+            {/* Cancel Upload Button */}
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                if (onCancelUpload) onCancelUpload();
+              }}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gray-100 hover:bg-rose-50 dark:bg-crystal-800 dark:hover:bg-rose-950/40 text-gray-600 hover:text-rose-600 dark:text-gray-300 dark:hover:text-rose-400 text-xs font-semibold transition-colors cursor-pointer border border-gray-200/80 dark:border-white/[0.08] shadow-xs"
+            >
+              <X className="w-3.5 h-3.5" /> Cancel Upload
+            </button>
           </div>
-        ) : success ? (
-          <div className="flex flex-col items-center gap-4">
-            <div className="w-14 h-14 bg-emerald-100 rounded-full flex items-center justify-center">
-              <CheckCircle className="w-7 h-7 text-emerald-600" />
+        ) : currentData ? (
+          <div className="flex flex-col items-center gap-4 animate-fade-in">
+            <div className="w-16 h-16 bg-emerald-100/80 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 rounded-3xl flex items-center justify-center shadow-lg shadow-emerald-500/20 border border-emerald-200 dark:border-emerald-500/30">
+              <CheckCircle className="w-8 h-8" />
             </div>
             <div>
-              <p className="text-sm font-semibold text-emerald-700">Dataset loaded successfully!</p>
-              <p className="text-xs text-gray-500 mt-1">{fileName} • Click to upload a different file</p>
+              <p className="text-base font-bold text-emerald-700 dark:text-emerald-400">Dataset Loaded & Cleaned Successfully!</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Click to upload a different CSV</p>
             </div>
           </div>
         ) : error ? (
-          <div className="flex flex-col items-center gap-4">
-            <div className="w-14 h-14 bg-red-100 rounded-full flex items-center justify-center">
-              <AlertCircle className="w-7 h-7 text-red-500" />
+          <div className="flex flex-col items-center gap-4 animate-fade-in">
+            <div className="w-16 h-16 bg-rose-100/80 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400 rounded-3xl flex items-center justify-center shadow-lg shadow-rose-500/20 border border-rose-200 dark:border-rose-500/30">
+              <AlertCircle className="w-8 h-8" />
             </div>
             <div>
-              <p className="text-sm font-semibold text-red-600">Upload failed</p>
-              <p className="text-xs text-red-500 mt-1">{error}</p>
-              <p className="text-xs text-gray-400 mt-2">Click to try again</p>
+              <p className="text-base font-bold text-rose-700 dark:text-rose-400">Upload Error</p>
+              <p className="text-xs text-rose-600 dark:text-rose-400 mt-1 max-w-md">{error}</p>
+              <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">Click to try again</p>
             </div>
           </div>
         ) : (
           <div className="flex flex-col items-center gap-4">
-            <div className="w-14 h-14 bg-sky-50 border border-sky-200 rounded-full flex items-center justify-center">
-              <Upload className="w-6 h-6 text-sky-500" />
+            <div className="w-16 h-16 bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-sky-400 rounded-3xl border border-blue-100 dark:border-blue-500/20 flex items-center justify-center shadow-xs">
+              <Upload className="w-7 h-7" />
             </div>
             <div>
-              <p className="text-sm font-semibold text-gray-700">
-                Drag & drop your CSV file here
-              </p>
-              <p className="text-xs text-gray-400 mt-1">or click to browse • Max 50MB</p>
+              <p className="text-base font-bold text-gray-900 dark:text-white">Drag & drop your sales CSV dataset here</p>
+              <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">or click to browse files · Instant parsing with auto-cleaning · Max 50MB</p>
             </div>
           </div>
         )}
       </div>
 
-      {/* Expected format */}
-      <div className="bg-white border border-gray-200/60 rounded-xl p-6">
-        <h3 className="font-semibold text-gray-900 mb-3 text-sm">Expected CSV Format</h3>
-        <div className="overflow-x-auto">
-          <div className="flex flex-wrap gap-2">
-            {[
-              'Product ID', 'Transaction ID', 'Date', 'Product Category',
-              'Product Name', 'Units Sold', 'Unit Price', 'Total Revenue',
-              'Payment Method', 'Rating', 'Reviews',
-            ].map((col) => (
-              <span
-                key={col}
-                className="text-xs bg-gray-100 text-gray-600 px-2.5 py-1 rounded-md font-mono"
-              >
-                {col}
+      {/* ── 2. DATA QUALITY & AUTOMATIC CLEANING SCORECARD (v1.5 PDF Spec) ── */}
+      {currentData && quality && (
+        <div className="bg-white dark:bg-crystal-900 border border-gray-100/90 dark:border-white/[0.08] rounded-3xl p-6 shadow-xs space-y-5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center border border-emerald-100 dark:border-emerald-500/20 shrink-0">
+                <ShieldCheck className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-gray-900 dark:text-white">Dataset Quality & Auto-Cleaning Scorecard</h3>
+                <p className="text-xs text-gray-400 dark:text-gray-500">
+                  Data anomalies, missing values, and date formats were automatically normalized
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-extrabold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200/60 dark:border-emerald-500/30 px-3 py-1.5 rounded-full flex items-center gap-1.5">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                {quality.score}% Quality Score
               </span>
-            ))}
+              <button
+                onClick={handleDownloadCleanedCSV}
+                className="px-3.5 py-1.5 rounded-xl bg-gray-50 hover:bg-gray-100 dark:bg-crystal-800 dark:hover:bg-crystal-750 text-xs font-bold text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-white/[0.08] transition-all flex items-center gap-1.5 cursor-pointer"
+              >
+                <Download className="w-3.5 h-3.5 text-blue-600 dark:text-sky-400" /> Export Clean CSV
+              </button>
+            </div>
           </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="bg-gray-50/70 dark:bg-crystal-850/60 p-3.5 rounded-2xl border border-gray-100 dark:border-white/[0.04]">
+              <span className="text-[10px] text-gray-400 dark:text-gray-500 uppercase font-bold tracking-wider block">
+                Issues Fixed Automatically
+              </span>
+              <p className="text-base font-black text-gray-900 dark:text-white mt-1">
+                {quality.issuesFixed} Issues
+              </p>
+              <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1 mt-0.5">
+                <Wrench className="w-2.5 h-2.5" /> Auto-remediated
+              </span>
+            </div>
+
+            <div className="bg-gray-50/70 dark:bg-crystal-850/60 p-3.5 rounded-2xl border border-gray-100 dark:border-white/[0.04]">
+              <span className="text-[10px] text-gray-400 dark:text-gray-500 uppercase font-bold tracking-wider block">
+                Missing Values Handled
+              </span>
+              <p className="text-base font-black text-gray-900 dark:text-white mt-1">
+                {quality.missingValuesFilled} Filled
+              </p>
+              <span className="text-[10px] text-blue-600 dark:text-sky-400 font-semibold mt-0.5 block">
+                Interpolated from prices
+              </span>
+            </div>
+
+            <div className="bg-gray-50/70 dark:bg-crystal-850/60 p-3.5 rounded-2xl border border-gray-100 dark:border-white/[0.04]">
+              <span className="text-[10px] text-gray-400 dark:text-gray-500 uppercase font-bold tracking-wider block">
+                Duplicates Filtered
+              </span>
+              <p className="text-base font-black text-gray-900 dark:text-white mt-1">
+                {quality.duplicatesRemoved} Removed
+              </p>
+              <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold mt-0.5 block">
+                Unique Txn Verified
+              </span>
+            </div>
+
+            <div className="bg-gray-50/70 dark:bg-crystal-850/60 p-3.5 rounded-2xl border border-gray-100 dark:border-white/[0.04]">
+              <span className="text-[10px] text-gray-400 dark:text-gray-500 uppercase font-bold tracking-wider block">
+                Date Normalization
+              </span>
+              <p className="text-base font-black text-gray-900 dark:text-white mt-1">
+                {quality.dateNormalized} Standardized
+              </p>
+              <span className="text-[10px] text-blue-600 dark:text-sky-400 font-semibold mt-0.5 block">
+                ISO-8601 Format
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CSV Column Format Reference */}
+      <div className="bg-white dark:bg-crystal-900 border border-gray-100/90 dark:border-white/[0.08] rounded-3xl p-6 shadow-xs">
+        <h3 className="text-sm font-bold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
+          <Table className="w-4 h-4 text-blue-600 dark:text-sky-400" /> Recognized CSV Header Columns
+        </h3>
+        <div className="flex flex-wrap gap-2">
+          {[
+            'Product ID', 'Transaction ID', 'Date', 'Product Category',
+            'Product Name', 'Units Sold', 'Unit Price', 'Total Revenue',
+            'Payment Method', 'Rating', 'Reviews',
+          ].map((col) => (
+            <span key={col} className="text-xs bg-blue-50/70 dark:bg-blue-950/30 text-blue-700 dark:text-sky-300 border border-blue-100 dark:border-blue-500/20 px-3 py-1.5 rounded-xl font-mono font-medium">
+              {col}
+            </span>
+          ))}
         </div>
       </div>
 
-      {/* Dataset summary (when data is loaded) */}
+      {/* Active Loaded Summary */}
       {currentData && (
-        <div className="bg-gradient-to-r from-[#0a0a0a] to-[#1a1a1a] rounded-2xl p-6 text-white relative overflow-hidden">
-          <div className="absolute right-0 top-0 w-64 h-64 bg-sky-400/10 rounded-full blur-[80px]" />
-          <div className="relative">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-sky-400/20 border border-sky-400/30 rounded-lg flex items-center justify-center">
-                  <FileText className="w-5 h-5 text-sky-400" />
-                </div>
-                <div>
-                  <p className="text-sm font-semibold">Dataset Loaded</p>
-                  <p className="text-xs text-gray-400">{fileName || 'retail_sales_dataset.csv'}</p>
-                </div>
+        <div className="bg-gradient-to-br from-blue-600 via-blue-700 to-sky-600 rounded-3xl p-6 text-white shadow-lg shadow-blue-500/20 space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-white/15 backdrop-blur-xs flex items-center justify-center border border-white/20">
+                <FileText className="w-5 h-5 text-white" />
               </div>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setSuccess(false);
-                  setFileName('');
-                }}
-                className="text-gray-500 hover:text-white transition-colors"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
-              <div className="bg-white/5 rounded-lg p-3">
-                <p className="text-xs text-gray-400">Total Rows</p>
-                <p className="text-lg font-bold text-sky-400">{currentData.totalOrders.toLocaleString()}</p>
-              </div>
-              <div className="bg-white/5 rounded-lg p-3">
-                <p className="text-xs text-gray-400">Date Range</p>
-                <p className="text-sm font-semibold text-white">
-                  {currentData.dateRange.from} → {currentData.dateRange.to}
-                </p>
-              </div>
-              <div className="bg-white/5 rounded-lg p-3">
-                <p className="text-xs text-gray-400">Categories</p>
-                <p className="text-lg font-bold text-sky-400">{currentData.categories.length}</p>
-              </div>
-              <div className="bg-white/5 rounded-lg p-3">
-                <p className="text-xs text-gray-400">Unique Products</p>
-                <p className="text-lg font-bold text-sky-400">{currentData.totalSKUs}</p>
+              <div>
+                <p className="text-sm font-bold text-white">Active Dataset Overview</p>
+                <p className="text-xs text-blue-100">{fileName || 'Active Dataset'}</p>
               </div>
             </div>
+            <button
+              onClick={handleClear}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/10 hover:bg-rose-500/80 transition-colors text-white text-xs font-semibold cursor-pointer"
+              title="Remove Dataset"
+            >
+              <Trash2 className="w-3.5 h-3.5" /> Remove Dataset
+            </button>
+          </div>
 
-            <p className="text-xs text-gray-400 mt-4 flex items-center gap-1">
-              <ArrowRight className="w-3 h-3" />
-              Navigate to Overview, Performance, Sentiment, or Predictive tabs to explore your data.
-            </p>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
+            {[
+              { label: 'Total Rows', val: currentData.totalOrders.toLocaleString() },
+              { label: 'Date Range', val: `${currentData.dateRange.from} → ${currentData.dateRange.to}` },
+              { label: 'Categories', val: currentData.categories.length.toString() },
+              { label: 'Unique SKUs', val: currentData.totalSKUs.toString() },
+            ].map((st) => (
+              <div key={st.label} className="bg-white/10 backdrop-blur-xs rounded-2xl p-3.5 border border-white/10">
+                <p className="text-[10px] text-blue-100 uppercase font-bold tracking-wider">{st.label}</p>
+                <p className="text-sm font-extrabold text-white mt-0.5">{st.val}</p>
+              </div>
+            ))}
           </div>
         </div>
       )}
