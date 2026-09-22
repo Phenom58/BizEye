@@ -102,10 +102,6 @@ The app will be available at `http://localhost:5173`.
 
 ```
 
-The app uses simple state-based routing in `App.tsx` — no router library is needed for this prototype. The `Page` type (`'landing' | 'login' | 'dashboard'`) controls which screen is rendered.
-
----
-
 ## Dashboard Sections
 
 ### Overview
@@ -145,21 +141,6 @@ AI-powered forecasts and risk detection:
 - 30-day forecast cards for Revenue, Orders, and New Customers with confidence scores
 - Stockout prediction table — days until each product runs out, severity badges
 - At-risk customer list with churn risk indicators and reasons
-
----
-
-## Roadmap
-
-This prototype is front-end only with dummy data. Planned next steps:
-
-- [ ] Wire Supabase authentication (email/password)
-- [ ] Build CSV upload flow with data parsing
-- [ ] Connect dashboard widgets to live Supabase queries
-- [ ] Implement AI insight generation via edge functions
-- [ ] Add real-time sentiment analysis pipeline
-- [ ] Build predictive forecasting models
-- [ ] Add user settings and account management
-- [ ] Implement role-based access control for teams
 
 ---
 
