@@ -1,4 +1,4 @@
-# BizEye — AI-Powered Business Intelligence for D2C Brands
+# BizEye - AI-Powered Business Intelligence for D2C Brands
 
 > Transform raw business data into actionable intelligence — performance, sentiment, and predictions from one unified dashboard.
 
@@ -63,52 +63,6 @@ This repository contains the front-end prototype with dummy data, dummy authenti
 
 ---
 
-## Tech Stack
-
-| Category       | Technology                        |
-|----------------|-----------------------------------|
-| Framework      | React 18                          |
-| Language       | TypeScript 5                      |
-| Build Tool     | Vite 5                            |
-| Styling        | Tailwind CSS 3                     |
-| Icons          | lucide-react                      |
-| Fonts          | Inter (Google Fonts)              |
-| Backend        | Supabase (available, not yet wired) |
-
----
-
-## Project Structure
-
-```
-project/
-├── index.html
-├── package.json
-├── vite.config.ts
-├── tsconfig.json
-├── tsconfig.app.json
-├── tailwind.config.js
-├── postcss.config.js
-├── eslint.config.js
-└── src/
-    ├── main.tsx                    # App entry point
-    ├── App.tsx                     # Root component & page routing
-    ├── index.css                   # Global styles, animations, Tailwind directives
-    ├── vite-env.d.ts
-    ├── components/
-    │   ├── Doodles.tsx             # Floating business-icon background component
-    │   └── dashboard/
-    │       ├── Overview.tsx        # KPIs, revenue chart, insights, activity feed
-    │       ├── Performance.tsx     # Product table, category breakdown, YoY comparison
-    │       ├── Sentiment.tsx       # Sentiment donuts, theme analysis, review cards
-    │       └── Predictive.tsx      # Forecasts, stockout predictions, at-risk customers
-    └── pages/
-        ├── Landing.tsx             # Marketing homepage
-        ├── Login.tsx               # Sign-in / sign-up page
-        └── Dashboard.tsx           # Dashboard shell with sidebar & section routing
-```
-
----
-
 ## Getting Started
 
 ### Prerequisites
@@ -146,17 +100,6 @@ The app will be available at `http://localhost:5173`.
 
 ---
 
-## Application Flow
-
-```
-Landing Page  ──►  Login Page  ──►  Dashboard
-     │                 │                 │
-     │                 │                 ├── Overview
-     │                 │                 ├── Performance
-     │                 │                 ├── Sentiment
-     │                 │                 └── Predictive
-     │                 │
-     └── "Get Started"  └── Dummy auth (any email + 4+ char password)
 ```
 
 The app uses simple state-based routing in `App.tsx` — no router library is needed for this prototype. The `Page` type (`'landing' | 'login' | 'dashboard'`) controls which screen is rendered.
@@ -202,42 +145,6 @@ AI-powered forecasts and risk detection:
 - 30-day forecast cards for Revenue, Orders, and New Customers with confidence scores
 - Stockout prediction table — days until each product runs out, severity badges
 - At-risk customer list with churn risk indicators and reasons
-
----
-
-## Design System
-
-### Color Palette
-
-| Token            | Usage                              | Value       |
-|------------------|------------------------------------|-------------|
-| Background (dark)| Landing & login backgrounds        | `#0a0a0a`   |
-| Background (light)| Dashboard canvas                  | `#f7f7f5`   |
-| Primary accent   | Buttons, highlights, active states | Sky blue    |
-| Surface          | Dashboard cards                    | White       |
-| Text (primary)   | Headings, important values         | Gray-900    |
-| Text (secondary) | Body copy, descriptions            | Gray-500    |
-| Success          | Positive trends, winning products  | Emerald     |
-| Warning          | Medium risk, cautionary states     | Sky blue    |
-| Error            | Negative trends, critical alerts   | Red         |
-
-### Typography
-
-- **Font Family:** Inter
-- **Weights:** 300 (Light), 400 (Regular), 500 (Medium), 600 (SemiBold), 700 (Bold)
-- **Body Line Height:** 150%
-- **Heading Line Height:** 120%
-
-### Spacing
-
-The project uses a consistent 8px spacing system via Tailwind's default scale.
-
-### Animations
-
-- **Float** — Business icons drift in multi-directional patterns (3-4s cycles) reminiscent of fish swimming in an aquarium
-- **Slide-up** — Staggered entrance animations on the landing page hero (100ms increments)
-- **Fade-in** — Dashboard sections transition in on mount
-- **Spin-slow** — Rotating scroll indicator on the landing page
 
 ---
 
