@@ -84,8 +84,6 @@ The development server starts automatically in this environment. If running loca
 npm run dev
 ```
 
-The app will be available at `http://localhost:5173`.
-
 ---
 
 ## Available Scripts
